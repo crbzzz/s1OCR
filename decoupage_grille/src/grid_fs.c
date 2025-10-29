@@ -18,6 +18,8 @@ int creer_dossier(const char *chem) {
     if (!chem || !*chem)
         return -1;
 
+
+
 #ifdef _WIN32
     if (_mkdir(chem) == 0 || errno == EEXIST)
         return 0;
@@ -38,6 +40,7 @@ int creer_dossier(const char *chem) {
         return _mkdir(chem) == 0 || errno == EEXIST ? 0 : -1;
     }
     return -1;
+
 #else
     if (mkdir(chem, 0755) == 0)
         return 0;
@@ -61,6 +64,7 @@ int creer_dossier(const char *chem) {
 #endif
 }
 
+
 int vider_dossier(const char *chem) {
     if (!chem || !*chem)
         return -1;
@@ -78,6 +82,8 @@ int vider_dossier(const char *chem) {
             return 0;
         return 0;
     }
+
+
 
     int rc = 0;
     do {
@@ -98,6 +104,7 @@ int vider_dossier(const char *chem) {
             if (remove(full) != 0)
                 rc = -1;
         }
+
     } while (_findnext(handle, &data) == 0);
     _findclose(handle);
     return rc;
@@ -114,6 +121,7 @@ int vider_dossier(const char *chem) {
     while ((entry = readdir(dir)) != NULL) {
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
             continue;
+
         char full[1024];
         int n = snprintf(full, sizeof(full), "%s/%s", chem, entry->d_name);
         if (n < 0 || (size_t)n >= sizeof(full)) {
@@ -124,26 +132,32 @@ int vider_dossier(const char *chem) {
         if (stat(full, &st) != 0) {
             rc = -1;
             continue;
+
         }
         if (S_ISDIR(st.st_mode)) {
             if (vider_dossier(full) != 0)
+
                 rc = -1;
             if (rmdir(full) != 0)
                 rc = -1;
         } else {
+
             if (remove(full) != 0)
                 rc = -1;
         }
     }
     closedir(dir);
     return rc;
+    
 #endif
 }
 
 int pret_dossier(const char *chem) {
     if (creer_dossier(chem) != 0)
         return -1;
+
     if (vider_dossier(chem) != 0)
         return -1;
     return 0;
 }
+

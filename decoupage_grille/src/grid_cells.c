@@ -4,40 +4,36 @@
 #include <stdlib.h>
 #include <string.h>
 
-unsigned char *prendre_case(const unsigned char *img,
-                            int larg_img,
-                            int x0,
-                            int y0,
-                            int x1,
-                            int y1,
-                            int *ret_larg,
-                            int *ret_haut) {
-    if (x1 <= x0 || y1 <= y0)
+unsigned char *prendre_case(const unsigned char *img, int larg_img, int x0, int y0, int x1, int y1, int *ret_larg, int *ret_haut)
+{
+    if (x1 <= x0 || y1 <= y0) {
         return NULL;
-    int cell_w = x1 - x0;
-    int cell_h = y1 - y0;
-    unsigned char *result = (unsigned char *)malloc((size_t)cell_w * (size_t)cell_h);
-    if (!result)
-        return NULL;
-    for (int y = 0; y < cell_h; ++y) {
-        memcpy(result + (size_t)y * (size_t)cell_w,
-               img + (size_t)(y0 + y) * (size_t)larg_img + (size_t)x0,
-               (size_t)cell_w);
     }
-    if (ret_larg)
-        *ret_larg = cell_w;
-    if (ret_haut)
-        *ret_haut = cell_h;
-    return result;
+
+    int w = x1 - x0;
+    int h = y1 - y0;
+    unsigned char *res = (unsigned char *)malloc((size_t)w * (size_t)h);
+    if (!res) {
+        return NULL;
+    }
+
+    for (int y = 0; y < h; ++y) {
+        memcpy(res + (size_t)y * (size_t)w,
+               img + (size_t)(y0 + y) * (size_t)larg_img + (size_t)x0,
+               (size_t)w);
+    }
+
+    if (ret_larg) {
+        *ret_larg = w;
+    }
+    if (ret_haut) {
+        *ret_haut = h;
+    }
+    return res;
 }
 
-int sauver_case(const char *dossier,
-                size_t col,
-                size_t lig,
-                const unsigned char *pix,
-                int larg,
-                int haut,
-                int stride) {
+int sauver_case(const char *dossier, size_t col, size_t lig, const unsigned char *pix, int larg, int haut, int stride)
+{
     char path[512];
     int n = snprintf(path, sizeof(path), "%s/%zu,%zu.png", dossier, col, lig);
     if (n < 0 || (size_t)n >= sizeof(path)) {
@@ -63,53 +59,61 @@ int couper_cases(const unsigned char *img,
                  double *tab_larg,
                  double *tab_haut,
                  size_t max_cases,
-                 size_t *nb_sortie) {
-    if (!band_h || !band_v || nb_h < 2 || nb_v < 2)
+                 size_t *nb_sortie)
+{
+    if (!band_h || !band_v || nb_h < 2 || nb_v < 2) {
         return -1;
+    }
 
     size_t nb_lig = nb_h - 1;
     size_t nb_col = nb_v - 1;
-    int saved = 0;
+    int sauves = 0;
     size_t idx = 0;
 
     for (size_t r = 0; r < nb_lig; ++r) {
         int top = band_h[r].fin + marge;
         int bottom = band_h[r + 1].deb - marge;
-        if (bottom <= top || top < 0 || bottom > haut)
+        if (bottom <= top || top < 0 || bottom > haut) {
             continue;
+        }
 
         for (size_t c = 0; c < nb_col; ++c) {
             int left = band_v[c].fin + marge;
             int right = band_v[c + 1].deb - marge;
-            if (right <= left || left < 0 || right > larg)
+            if (right <= left || left < 0 || right > larg) {
                 continue;
+            }
 
-            int cell_w = 0;
-            int cell_h = 0;
-            unsigned char *cell = prendre_case(img, larg, left, top, right, bottom, &cell_w, &cell_h);
-            if (!cell)
+            int w = 0;
+            int h = 0;
+            unsigned char *cell = prendre_case(img, larg, left, top, right, bottom, &w, &h);
+            if (!cell) {
                 continue;
-            if (sauver_case(dossier, c, r, cell, cell_w, cell_h, cell_w) == 0)
-                saved++;
+            }
+
+            if (sauver_case(dossier, c, r, cell, w, h, w) == 0) {
+                sauves++;
+            }
             if (tab_larg && tab_haut && nb_sortie && idx < max_cases) {
-                tab_larg[idx] = (double)cell_w;
-                tab_haut[idx] = (double)cell_h;
+                tab_larg[idx] = (double)w;
+                tab_haut[idx] = (double)h;
                 idx++;
             }
             free(cell);
         }
     }
 
-    if (nb_sortie)
+    if (nb_sortie) {
         *nb_sortie = idx;
-    return saved;
+    }
+    return sauves;
 }
 
-int cases_uniformes(const double *tab_larg,
-                    const double *tab_haut,
-                    size_t nb) {
-    if (!tab_larg || !tab_haut || nb == 0)
+int cases_uniformes(const double *tab_larg, const double *tab_haut, size_t nb)
+{
+    if (!tab_larg || !tab_haut || nb == 0) {
         return 1;
+    }
 
     double min_w = tab_larg[0];
     double max_w = tab_larg[0];
@@ -122,14 +126,27 @@ int cases_uniformes(const double *tab_larg,
         double w = tab_larg[i];
         double h = tab_haut[i];
         double area = w * h;
-        if (w <= 0.0 || h <= 0.0)
+        if (w <= 0.0 || h <= 0.0) {
             return 0;
-        if (w < min_w) min_w = w;
-        if (w > max_w) max_w = w;
-        if (h < min_h) min_h = h;
-        if (h > max_h) max_h = h;
-        if (area < min_area) min_area = area;
-        if (area > max_area) max_area = area;
+        }
+        if (w < min_w) {
+            min_w = w;
+        }
+        if (w > max_w) {
+            max_w = w;
+        }
+        if (h < min_h) {
+            min_h = h;
+        }
+        if (h > max_h) {
+            max_h = h;
+        }
+        if (area < min_area) {
+            min_area = area;
+        }
+        if (area > max_area) {
+            max_area = area;
+        }
     }
 
     double ratio_w = max_w / min_w;
@@ -140,11 +157,14 @@ int cases_uniformes(const double *tab_larg,
     const double seuil_h = 1.5;
     const double seuil_area = 2.2;
 
-    if (ratio_w > seuil_w)
+    if (ratio_w > seuil_w) {
         return 0;
-    if (ratio_h > seuil_h)
+    }
+    if (ratio_h > seuil_h) {
         return 0;
-    if (ratio_area > seuil_area)
+    }
+    if (ratio_area > seuil_area) {
         return 0;
+    }
     return 1;
 }

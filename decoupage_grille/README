@@ -14,7 +14,5 @@ make -C decoupage_grille mots      # compile mots_extraction
 Pipeline type :
 1. make -C decoupage_grille
 2. ./decoupage_grille/grid_splitter decoupage_grille/data/clean_grid/<image> decoupage_grille/data/letters
-3. Preparez un fichier de description `decoupage_grille/src2/mots_coords.txt`
-4. make -C decoupage_grille mots
-5. ./decoupage_grille/mots_extraction decoupage_grille/data/letters decoupage_grille/src2/mots_coords.txt decoupage_grille/data/mots
+
 

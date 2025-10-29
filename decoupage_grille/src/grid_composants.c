@@ -10,14 +10,17 @@ typedef struct {
     int y_min;
     int x_max;
     int y_max;
+
     int aire;
 } Bloc;
 
 typedef struct {
     Bloc *tab;
     size_t nb;
+
     size_t cap;
 } BlocTab;
+
 
 typedef struct {
     size_t debut;
@@ -29,6 +32,7 @@ static void bloc_tab_libere(BlocTab *tab) {
         return;
     free(tab->tab);
     tab->tab = NULL;
+
     tab->nb = 0;
     tab->cap = 0;
 }
@@ -36,6 +40,7 @@ static void bloc_tab_libere(BlocTab *tab) {
 static int bloc_tab_ajoute(BlocTab *tab, Bloc bloc) {
     if (!tab)
         return -1;
+
     if (tab->nb == tab->cap) {
         size_t cap_nouv = tab->cap ? tab->cap * 2 : 16;
         Bloc *tmp = (Bloc *)realloc(tab->tab, cap_nouv * sizeof(Bloc));
@@ -46,6 +51,7 @@ static int bloc_tab_ajoute(BlocTab *tab, Bloc bloc) {
     }
     tab->tab[tab->nb++] = bloc;
     return 0;
+
 }
 
 static int tri_bloc_y(const void *a, const void *b) {
@@ -56,6 +62,7 @@ static int tri_bloc_y(const void *a, const void *b) {
     return ba->x_min - bb->x_min;
 }
 
+
 static int tri_bloc_x(const void *a, const void *b) {
     const Bloc *ba = (const Bloc *)a;
     const Bloc *bb = (const Bloc *)b;
@@ -64,10 +71,12 @@ static int tri_bloc_x(const void *a, const void *b) {
     return ba->y_min - bb->y_min;
 }
 
+
 static int tri_double(const void *a, const void *b) {
     double da = *(const double *)a;
     double db = *(const double *)b;
     if (da < db) return -1;
+
     if (da > db) return 1;
     return 0;
 }
@@ -78,6 +87,8 @@ static double copie_mediane(const double *vals, size_t nb) {
     double *tmp = (double *)malloc(nb * sizeof(double));
     if (!tmp)
         return vals[0];
+
+
     memcpy(tmp, vals, nb * sizeof(double));
     qsort(tmp, nb, sizeof(double), tri_double);
     double med;
@@ -85,6 +96,7 @@ static double copie_mediane(const double *vals, size_t nb) {
         med = tmp[nb / 2];
     else
         med = 0.5 * (tmp[nb / 2 - 1] + tmp[nb / 2]);
+
     free(tmp);
     return med;
 }
@@ -102,6 +114,7 @@ static int remplis_blc(const unsigned char *pix,
     size_t top = 0;
     size_t idx = (size_t)sy * (size_t)larg + (size_t)sx;
     pile[top++] = (int)idx;
+
     vu[idx] = 1;
 
     int x_min = sx;
@@ -115,9 +128,11 @@ static int remplis_blc(const unsigned char *pix,
         {1, 1}, {1, -1}, {-1, 1}, {-1, -1}
     };
 
+
     while (top > 0) {
         int cur = pile[--top];
         int cx = cur % larg;
+
         int cy = cur / larg;
         aire++;
 
@@ -138,6 +153,7 @@ static int remplis_blc(const unsigned char *pix,
                 continue;
             if (top >= t_pile)
                 continue;
+
             vu[nidx] = 1;
             pile[top++] = (int)nidx;
         }
@@ -159,6 +175,7 @@ static int trouve_blocs(const unsigned char *pix,
                         BlocTab *tab) {
     const int seuil = 220;
     size_t nb_pix = (size_t)larg * (size_t)haut;
+
     unsigned char *vu = (unsigned char *)calloc(nb_pix, 1);
     if (!vu)
         return -1;
@@ -169,6 +186,7 @@ static int trouve_blocs(const unsigned char *pix,
     }
 
     for (int y = 0; y < haut; ++y) {
+
         for (int x = 0; x < larg; ++x) {
             size_t pos = (size_t)y * (size_t)larg + (size_t)x;
             if (vu[pos])
@@ -184,6 +202,7 @@ static int trouve_blocs(const unsigned char *pix,
             if (bloc_larg < 2 || bloc_haut < 2)
                 continue;
             double ratio = (double)bloc_larg / (double)bloc_haut;
+
             if (ratio < 0.08 || ratio > 12.0)
                 continue;
             if ((double)aire < (double)(bloc_larg * bloc_haut) * 0.1)
@@ -196,6 +215,8 @@ static int trouve_blocs(const unsigned char *pix,
             }
         }
     }
+
+
 
     free(pile);
     free(vu);
@@ -216,6 +237,7 @@ static int trouve_blocs(const unsigned char *pix,
         if ((double)bloc.aire >= seuil_air)
             tab->tab[ecrit++] = bloc;
     }
+
     tab->nb = ecrit;
 
     return tab->nb > 0 ? 0 : -1;
@@ -228,6 +250,7 @@ static int ajoute_lot(LotLig **lots,
                       size_t nb_blocs) {
     if (*nb == *cap) {
         size_t cap_nouv = *cap ? *cap * 2 : 8;
+
         LotLig *tmp = (LotLig *)realloc(*lots, cap_nouv * sizeof(LotLig));
         if (!tmp)
             return -1;
@@ -241,6 +264,7 @@ static int ajoute_lot(LotLig **lots,
 static int grille_depuis_blocs(const unsigned char *pix,
                                int larg,
                                int haut,
+
                                const char *dossier,
                                BlocTab *tab,
                                LotLig *lots,
@@ -253,6 +277,7 @@ static int grille_depuis_blocs(const unsigned char *pix,
         double bas;
         double centre;
         size_t debut;
+
         size_t nb;
     } InfosLig;
 
@@ -270,6 +295,7 @@ static int grille_depuis_blocs(const unsigned char *pix,
     double tot_haut = 0.0;
     for (size_t i = 0; i < tab->nb; ++i) {
         double w = (double)(tab->tab[i].x_max - tab->tab[i].x_min + 1);
+
         double h = (double)(tab->tab[i].y_max - tab->tab[i].y_min + 1);
         tot_larg += w;
         tot_haut += h;
@@ -285,6 +311,7 @@ static int grille_depuis_blocs(const unsigned char *pix,
         double bas_l = 0.0;
         for (size_t k = 0; k < lot.nb; ++k) {
             const Bloc *bloc = &tab->tab[lot.debut + k];
+
             if ((double)bloc->y_min < haut_l)
                 haut_l = (double)bloc->y_min;
             if ((double)(bloc->y_max + 1) > bas_l)
@@ -330,6 +357,9 @@ static int grille_depuis_blocs(const unsigned char *pix,
             freq_opt = freq;
             cible_col = lots[i].nb;
         }
+
+
+
     }
     if (cible_col < 2) {
         free(idx_ok);
@@ -382,6 +412,7 @@ static int grille_depuis_blocs(const unsigned char *pix,
         }
         for (size_t i = 0; i < nb_ecarts; ++i)
             ecarts[i] = centres[i + 1] - centres[i];
+            
     }
 
     double med_ecart = nb_ecarts ? copie_mediane(ecarts, nb_ecarts) : 0.0;
