@@ -31,54 +31,111 @@ static void basename_no_ext(const char* path, char* out, size_t n) {
     out[len] = '\0';
 }
 
+/* Seuil d'Otsu sur histogramme 0..255 */
+static int otsu_threshold(const unsigned int hist[256], unsigned int total) {
+    double sum = 0.0;
+    for (int t = 0; t < 256; ++t) sum += t * (double)hist[t];
+
+    double sumB = 0.0;
+    unsigned int wB = 0;
+    unsigned int wF = 0;
+    double varMax = -1.0;
+    int threshold = 128;
+
+    for (int t = 0; t < 256; ++t) {
+        wB += hist[t];
+        if (wB == 0) continue;
+        wF = total - wB;
+        if (wF == 0) break;
+
+        sumB += t * (double)hist[t];
+        double mB = sumB / wB;
+        double mF = (sum - sumB) / wF;
+
+        double varBetween = (double)wB * (double)wF * (mB - mF) * (mB - mF);
+        if (varBetween > varMax) {
+            varMax = varBetween;
+            threshold = t;
+        }
+    }
+    return threshold;
+}
+
 int main(int argc, char** argv) {
     if (argc < 2) {
         printf("Usage: %s <fichier_image_dans_samples> [seuil 0-255]\n", argv[0]);
-        printf("Ex: %s easy.png 128\n", argv[0]);
+        printf("Ex: %s medium.png  (seuil auto Otsu)\n", argv[0]);
+        printf("    %s medium.png 150  (seuil forcé)\n", argv[0]);
         return 1;
     }
 
+    int use_forced_threshold = 0;
     int threshold = 128;
     if (argc >= 3) {
         threshold = atoi(argv[2]);
         if (threshold < 0) threshold = 0;
         if (threshold > 255) threshold = 255;
+        use_forced_threshold = 1;
     }
 
     char in_path[512];
     snprintf(in_path, sizeof(in_path), "samples/%s", argv[1]);
 
     int w, h, comp;
-    unsigned char* img = stbi_load(in_path, &w, &h, &comp, 0);
+    /* Force RGBA pour gérer l'alpha proprement */
+    unsigned char* img = stbi_load(in_path, &w, &h, &comp, 4);
     if (!img) {
         fprintf(stderr, "Echec chargement: %s\n", in_path);
         return 2;
     }
+    const int src_c = 4;
+    const int stride = w * src_c;
 
-    int src_c = comp;
-    int stride = w * src_c;
-    unsigned char* bw = (unsigned char*)malloc((size_t)w * (size_t)h);
-    if (!bw) {
+    /* Grayscale 8 bits + histo pour Otsu si besoin */
+    unsigned char* gray = (unsigned char*)malloc((size_t)w * (size_t)h);
+    if (!gray) {
         stbi_image_free(img);
         fprintf(stderr, "Memoire insuffisante\n");
         return 3;
     }
 
+    unsigned int hist[256] = {0};
+
     for (int y = 0; y < h; y++) {
         const unsigned char* row = img + (size_t)y * (size_t)stride;
         for (int x = 0; x < w; x++) {
-            unsigned char r,g,b;
-            if (src_c == 1) {
-                r = g = b = row[x];
-            } else {
-                const unsigned char* px = row + (size_t)x * (size_t)src_c;
-                r = px[0];
-                g = px[1 % src_c];
-                b = px[2 % src_c];
-            }
-            double ylin = 0.2126 * (double)r + 0.7152 * (double)g + 0.0722 * (double)b;
-            bw[(size_t)y * (size_t)w + (size_t)x] = (unsigned char)((ylin >= threshold) ? 255 : 0);
+            const unsigned char* px = row + (size_t)x * (size_t)src_c;
+            /* RGBA */
+            unsigned int r = px[0], g = px[1], b = px[2], a = px[3];
+
+            /* Composition sur fond blanc : out = a*rgb + (1-a)*255 */
+            r = (r * a + 255u * (255u - a)) / 255u;
+            g = (g * a + 255u * (255u - a)) / 255u;
+            b = (b * a + 255u * (255u - a)) / 255u;
+
+            /* Gris (coeffs sRGB simples) */
+            unsigned int y8 = (unsigned int)(0.299 * r + 0.587 * g + 0.114 * b + 0.5);
+            if (y8 > 255u) y8 = 255u;
+
+            gray[(size_t)y * (size_t)w + (size_t)x] = (unsigned char)y8;
+            hist[y8]++;
         }
+    }
+
+    if (!use_forced_threshold) {
+        threshold = otsu_threshold(hist, (unsigned int)((unsigned long long)w * (unsigned long long)h));
+    }
+
+    /* Binarisation */
+    unsigned char* bw = (unsigned char*)malloc((size_t)w * (size_t)h);
+    if (!bw) {
+        free(gray);
+        stbi_image_free(img);
+        fprintf(stderr, "Memoire insuffisante\n");
+        return 3;
+    }
+    for (int i = 0, n = w * h; i < n; ++i) {
+        bw[i] = (gray[i] >= threshold) ? 255 : 0;
     }
 
     MKDIR("out");
@@ -87,28 +144,17 @@ int main(int argc, char** argv) {
     char out_path[512];
     snprintf(out_path, sizeof(out_path), "out/%s_bw.png", base);
 
-    if (!stbi_write_png(out_path, w, h, 1, bw, w * 1)) {
+    if (!stbi_write_png(out_path, w, h, 1, bw, w)) {
         fprintf(stderr, "Echec ecriture: %s\n", out_path);
         free(bw);
+        free(gray);
         stbi_image_free(img);
         return 4;
     }
 
-    printf("OK -> %s (seuil=%d)\n", out_path, threshold);
+    printf("OK -> %s (seuil=%d%s)\n", out_path, threshold, use_forced_threshold ? "" : " [Otsu]");
     free(bw);
+    free(gray);
     stbi_image_free(img);
     return 0;
 }
-
-/*
-Placez ces deux headers dans le même dossier que binary.c sous les noms:
-  - stb_image.h
-  - stb_image_write.h
-Vous pouvez aussi coller leur contenu ici si vous préférez un seul fichier.
-Sources officielles : https://github.com/nothings/stb
-Compilation:
-  gcc binary.c -o binary
-Utilisation:
-  ./binary easy.png
-  ./binary medium.png 100
-*/
