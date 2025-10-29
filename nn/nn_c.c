@@ -118,7 +118,7 @@ void train_xor(int epochs, double lr, Params* p) {
     }
 }
 
-/* EXEC MAIN */
+
 
 int main() {
     srand((unsigned)time(NULL));

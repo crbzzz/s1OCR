@@ -16,22 +16,34 @@ Interface :
 Solver : 
 
     gcc -o solver_test main.c solver.c
+    Possibilitée d'utilser le Makefile : make
     ./solver_test
+
+1. Prends une grille et une liste de mots en entrée
+2. Résout la grille avec les mots donnés et affiche le résultat dans la console.
 
 Réseau Neuronal : 
 
     Python : python3 nn_python.py 
 
+    Possibilitée d'utilser le Makefile : make
     gcc nn_c.c -o nn_c -lm
     ./nn_c
 
+1. Entraine un réseau neuronal crée pour la fonction XOR
+2. Affiche les résultats de l'entrainement dans la console pour chaque sortie
 
 Rendu binaire : 
 
     gcc binary.c -o binary -lm
     ./binary "NOM IMAGE"
+    Possibilitée d'utilser le Makefile : make
 
-Rendu renvoyé dans out/ 
+    - Rendu renvoyé dans out/ 
+
+1. Prends une image en entrée
+2. Transforme l'image en binaire (noir et blanc)
+3. Sauvegarde l'image binaire dans le dossier out/
 
 
 

@@ -31,7 +31,6 @@ static void basename_no_ext(const char* path, char* out, size_t n) {
     out[len] = '\0';
 }
 
-/* Seuil d'Otsu sur histogramme 0..255 */
 static int otsu_threshold(const unsigned int hist[256], unsigned int total) {
     double sum = 0.0;
     for (int t = 0; t < 256; ++t) sum += t * (double)hist[t];
@@ -63,9 +62,6 @@ static int otsu_threshold(const unsigned int hist[256], unsigned int total) {
 
 int main(int argc, char** argv) {
     if (argc < 2) {
-        printf("Usage: %s <fichier_image_dans_samples> [seuil 0-255]\n", argv[0]);
-        printf("Ex: %s medium.png  (seuil auto Otsu)\n", argv[0]);
-        printf("    %s medium.png 150  (seuil forcé)\n", argv[0]);
         return 1;
     }
 
@@ -82,20 +78,18 @@ int main(int argc, char** argv) {
     snprintf(in_path, sizeof(in_path), "samples/%s", argv[1]);
 
     int w, h, comp;
-    /* Force RGBA pour gérer l'alpha proprement */
     unsigned char* img = stbi_load(in_path, &w, &h, &comp, 4);
     if (!img) {
-        fprintf(stderr, "Echec chargement: %s\n", in_path);
+        fprintf(stderr, "Echec : %s\n", in_path);
         return 2;
     }
     const int src_c = 4;
     const int stride = w * src_c;
 
-    /* Grayscale 8 bits + histo pour Otsu si besoin */
     unsigned char* gray = (unsigned char*)malloc((size_t)w * (size_t)h);
     if (!gray) {
         stbi_image_free(img);
-        fprintf(stderr, "Memoire insuffisante\n");
+        fprintf(stderr, "pas assez de mémoire\n");
         return 3;
     }
 
@@ -105,15 +99,12 @@ int main(int argc, char** argv) {
         const unsigned char* row = img + (size_t)y * (size_t)stride;
         for (int x = 0; x < w; x++) {
             const unsigned char* px = row + (size_t)x * (size_t)src_c;
-            /* RGBA */
             unsigned int r = px[0], g = px[1], b = px[2], a = px[3];
 
-            /* Composition sur fond blanc : out = a*rgb + (1-a)*255 */
             r = (r * a + 255u * (255u - a)) / 255u;
             g = (g * a + 255u * (255u - a)) / 255u;
             b = (b * a + 255u * (255u - a)) / 255u;
 
-            /* Gris (coeffs sRGB simples) */
             unsigned int y8 = (unsigned int)(0.299 * r + 0.587 * g + 0.114 * b + 0.5);
             if (y8 > 255u) y8 = 255u;
 
@@ -126,12 +117,11 @@ int main(int argc, char** argv) {
         threshold = otsu_threshold(hist, (unsigned int)((unsigned long long)w * (unsigned long long)h));
     }
 
-    /* Binarisation */
     unsigned char* bw = (unsigned char*)malloc((size_t)w * (size_t)h);
     if (!bw) {
         free(gray);
         stbi_image_free(img);
-        fprintf(stderr, "Memoire insuffisante\n");
+        fprintf(stderr, "X mémoire\n");
         return 3;
     }
     for (int i = 0, n = w * h; i < n; ++i) {
@@ -152,7 +142,7 @@ int main(int argc, char** argv) {
         return 4;
     }
 
-    printf("OK -> %s (seuil=%d%s)\n", out_path, threshold, use_forced_threshold ? "" : " [Otsu]");
+    printf("OK -> %s", out_path);
     free(bw);
     free(gray);
     stbi_image_free(img);

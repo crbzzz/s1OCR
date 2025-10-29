@@ -37,12 +37,12 @@ static char* load_grid(const char* path, unsigned int* rows, unsigned int* cols)
     }
     fclose(f);
 
-    if (n == 0) { fprintf(stderr,"Grille vide.\n"); return NULL; }
+    if (n == 0) { fprintf(stderr,"Grille vide\n"); return NULL; }
 
     size_t c = strlen(lines[0]);
     for (size_t r=1; r<n; ++r) {
         if (strlen(lines[r]) != c) {
-            fprintf(stderr,"Toutes les lignes doivent avoir la même longueur après suppression des espaces.\n");
+            fprintf(stderr,"Les lignes n'ont pas toutes la meme longueur.\n");
             for (size_t i=0;i<n;i++) free(lines[i]); free(lines);
             return NULL;
         }
@@ -66,7 +66,7 @@ int main(void) {
     unsigned int rows=0, cols=0;
     char* grid = load_grid("grid/sample_grid.txt", &rows, &cols);
     if (!grid) return 1;
-    printf("Grille %ux%u chargée (espaces retirés).\n", rows, cols);
+    printf("Grille %ux%u chargée.\n", rows, cols);
 
     FILE* fw = fopen("grid/words.txt", "r");
     if (!fw) { perror("open words"); free(grid); return 1; }
