@@ -1,0 +1,38 @@
+Liste des commandes pour build : 
+
+(Personnel) CD : cd /mnt/c/Users/edoua/Desktop/OCR-S1/ 
+
+Interface : 
+
+    gcc -o interface main.c ocr_window.c $(pkg-config --cflags --libs gtk+-3.0) -lm
+    ./interface
+
+1. Page d'accueil avec bouton pour lancer le projet.
+2. Possibilité de charger une image dans l'interface.
+3. Rotation d'image avec un angle en entrée, puis enregistrement de l'image rotationnée dans 'out/'.
+4. A chaque nouvelle rotation, 'out/' est clear pour ne garder qu'une image.
+
+
+Solver : 
+
+    gcc -o solver_test main.c solver.c
+    ./solver_test
+
+Réseau Neuronal : 
+
+    Python : python3 nn_python.py 
+
+    gcc nn_c.c -o nn_c -lm
+    ./nn_c
+
+
+Rendu binaire : 
+
+    gcc binary.c -o binary -lm
+    ./binary "NOM IMAGE"
+
+Rendu renvoyé dans out/ 
+
+
+
+
