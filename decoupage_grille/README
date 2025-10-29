@@ -1,0 +1,20 @@
+Dossier pour le decoupage de la grille et des lettres associees.
+
+Structure :
+- src/ : code C pour extraire les cases de la grille (binaire grid_splitter).
+- src2/ : utilitaires pour recuperer les mots hors de la grille (mots_extraction).
+- data/clean_grid/ : images preparees (noir/blanc) de la grille.
+- data/letters/ : resultat du decoupage cellule par cellule (col,lig.png).
+- data/mots/ : destination suggeree pour les lettres reconstituees mot par mot.
+
+Commandes utiles :
+make -C decoupage_grille            # compile grid_splitter
+make -C decoupage_grille mots      # compile mots_extraction
+
+Pipeline type :
+1. make -C decoupage_grille
+2. ./decoupage_grille/grid_splitter decoupage_grille/data/clean_grid/<image> decoupage_grille/data/letters
+3. Preparez un fichier de description `decoupage_grille/src2/mots_coords.txt`
+4. make -C decoupage_grille mots
+5. ./decoupage_grille/mots_extraction decoupage_grille/data/letters decoupage_grille/src2/mots_coords.txt decoupage_grille/data/mots
+

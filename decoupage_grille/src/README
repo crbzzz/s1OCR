@@ -1,0 +1,25 @@
+Placez ici les fichiers source pour la detection de la grille.
+
+Le code est decoupe en plusieurs fichiers :
+- `grid_fs.c` : gestion des dossiers (creation, nettoyage).
+- `grid_image.c` : chargement/sauvegarde des images via stb.
+- `grid_bandes.c` : detection des lignes horizontales et verticales de la grille.
+- `grid_cells.c` : decoupe et ecriture des cases.
+- `grid_composants.c` : detection des lettres et reconstruction de grille synthetique.
+- `grid_splitter_core.c` : logique haut niveau pour choisir la bonne strategie.
+- `main.c` : point d'entree CLI.
+
+L'utilitaire charge une grille noir/blanc deja redressee, essaye d'abord l'extraction par lignes de grille, bascule sur la detection par lettres si besoin, nettoie le dossier de sortie et ecrit chaque case dans `x,y.png`.
+
+Compilation (depuis `s1OCR/`, necessite simplement `gcc` et les en-tetes `stb_*` presents dans `binary/`) :
+```
+gcc grid_locator/src/*.c -Ibinary -o grid_splitter -lm
+```
+
+Exemples d'utilisation :
+```
+./grid_splitter grid_locator/data/clean_grid/easy_bw.png grid_locator/data/letters
+./grid_splitter grid_locator/data/clean_grid/hard_bw.png grid_locator/data/letters
+```
+
+Chaque fichier genere est nomme `colonne,ligne.png` (`0,0` = coin superieur gauche).

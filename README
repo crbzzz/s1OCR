@@ -33,6 +33,9 @@ Rendu binaire :
 
 Rendu renvoyé dans out/ 
 
+Rendu Decoupage_grille :
+    make -C decoupage_grille
+    ./decoupage_grille/grid_splitter decoupage_grille/data/clean_grid/<image> decoupage_grille/data/letters
 
 
 
