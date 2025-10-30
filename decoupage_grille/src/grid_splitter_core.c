@@ -33,12 +33,7 @@ int decoupe_grille(const unsigned char *pix,
             }
         }
 
-        int sauv = couper_cases(pix, larg, haut,
-                                band_h, nb_lignes,
-                                band_v, nb_col,
-                                marge, dossier,
-                                tab_l, tab_h,
-                                nb_cases, &nb_stat);
+        int sauv = couper_cases(pix, larg, haut, band_h, nb_lignes, band_v, nb_col, marge, dossier,tab_l, tab_h,nb_cases, &nb_stat);
 
         liberer_bandes(band_h);
         liberer_bandes(band_v);

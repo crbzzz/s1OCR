@@ -101,16 +101,7 @@ static double copie_mediane(const double *vals, size_t nb) {
     return med;
 }
 
-static int remplis_blc(const unsigned char *pix,
-                       int larg,
-                       int haut,
-                       unsigned char *vu,
-                       int sx,
-                       int sy,
-                       int seuil,
-                       Bloc *res,
-                       int *pile,
-                       size_t t_pile) {
+static int remplis_blc(const unsigned char *pix,int larg,int haut,unsigned char *vu,int sx,int sy,int seuil,Bloc *res,int *pile,size_t t_pile) {
     size_t top = 0;
     size_t idx = (size_t)sy * (size_t)larg + (size_t)sx;
     pile[top++] = (int)idx;
@@ -681,11 +672,7 @@ static int grille_depuis_blocs(const unsigned char *pix,
         dernier = x;
     }
 
-    int extrait = couper_cases(pix, larg, haut,
-                               band_h, nb_lignes + 1,
-                               band_v, col_final + 1,
-                               0, dossier,
-                               NULL, NULL, 0, NULL);
+    int extrait = couper_cases(pix, larg, haut,band_h, nb_lignes + 1,band_v, col_final + 1,0, dossier, NULL, NULL, 0, NULL);
 
     free(band_v);
     free(band_h);
