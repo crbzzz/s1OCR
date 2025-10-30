@@ -789,7 +789,7 @@ static int grille_depuis_blocs(const unsigned char *pix,
     if (extrait <= 0) {
         return -1;
     }
-    printf("Grille synthetisee: %d cellules sauvegardees dans %s\n", extrait, dossier);
+    printf("grille valide\n");
     return 0;
 }
 
@@ -802,7 +802,7 @@ int decoupe_lettres(const unsigned char *pix, int larg, int haut, const char *do
     BlocTab tab = {0};
     if (trouve_blocs(pix, larg, haut, &tab) != 0) {
         bloc_tab_libere(&tab);
-        fprintf(stderr, "Detection de lettres impossible dans l'image.\n");
+        fprintf(stderr, "impossible\n");
         return -1;
     }
 
@@ -873,7 +873,7 @@ int decoupe_lettres(const unsigned char *pix, int larg, int haut, const char *do
     if (nb_lots == 0) {
         free(lots);
         bloc_tab_libere(&tab);
-        fprintf(stderr, "Impossible de structurer les lettres en lignes.\n");
+        fprintf(stderr, "Erruer.\n");
         return -1;
     }
 
@@ -930,9 +930,9 @@ int decoupe_lettres(const unsigned char *pix, int larg, int haut, const char *do
     }
 
     if (sauver > 0) {
-        printf("Extraction terminee: %d lettres sauvegardees dans %s\n", sauver, dossier);
+        printf("fini\n");
     } else {
-        fprintf(stderr, "Aucune lettre sauvegardee.\n");
+        fprintf(stderr, "Erreur.\n");
     }
 
     free(lots);

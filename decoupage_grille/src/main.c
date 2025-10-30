@@ -4,8 +4,6 @@
 
 int main(int argc, char **argv) {
     if (argc < 3) {
-        fprintf(stderr, "Usage: %s <image_grille_png> <dossier_sortie>\n", argv[0]);
-        fprintf(stderr, "Exemple: %s grid_locator/data/clean_grid/easy_bw.png grid_locator/data/letters\n", argv[0]);
         return 1;
     }
 

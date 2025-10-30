@@ -46,22 +46,21 @@ int decoupe_grille(const unsigned char *pix, int larg, int haut, const char *dos
             free(tab_h);
 
             if (ok) {
-                printf("Extraction terminee: %d cellules sauvegardees dans %s\n", sauv, dossier);
+                printf("Fini");
                 return 0;
             }
 
-            fprintf(stderr, "Variation de taille detectee, bascule vers la detection par lettres.\n");
+            fprintf(stderr, "Erreur, bascule vers la détection pr lettre.\n");
         } else {
             free(tab_l);
             free(tab_h);
         }
 
-        fprintf(stderr, "Tentative via detection de lettres.\n");
+        fprintf(stderr, "Detection pr lettres.\n");
         return decoupe_lettres(pix, larg, haut, dossier);
     }
 
-    fprintf(stderr, "Detection des lignes de grille impossible (trouve %zu horizontales, %zu verticales).\n",
-            nb_lignes, nb_col);
+    fprintf(stderr, "Erreur");
     liberer_bandes(band_h);
     liberer_bandes(band_v);
     return decoupe_lettres(pix, larg, haut, dossier);
