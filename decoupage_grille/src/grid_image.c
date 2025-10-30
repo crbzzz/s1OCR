@@ -14,7 +14,8 @@ void liberer_image(unsigned char *img) {
 }
 
 int ecrire_png(const char *chem, int larg, int haut, int comp, const void *donnees, int stride) {
-    if (!stbi_write_png(chem, larg, haut, comp, donnees, stride))
+    if (!stbi_write_png(chem, larg, haut, comp, donnees, stride)) {
         return -1;
+    }
     return 0;
 }

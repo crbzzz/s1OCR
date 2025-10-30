@@ -10,102 +10,122 @@ typedef struct {
     int y_min;
     int x_max;
     int y_max;
-
     int aire;
 } Bloc;
 
 typedef struct {
     Bloc *tab;
     size_t nb;
-
     size_t cap;
 } BlocTab;
-
 
 typedef struct {
     size_t debut;
     size_t nb;
 } LotLig;
 
-static void bloc_tab_libere(BlocTab *tab) {
-    if (!tab)
+static void bloc_tab_libere(BlocTab *tab)
+{
+    if (tab == NULL) {
         return;
+    }
     free(tab->tab);
     tab->tab = NULL;
-
     tab->nb = 0;
     tab->cap = 0;
 }
 
-static int bloc_tab_ajoute(BlocTab *tab, Bloc bloc) {
-    if (!tab)
+static int bloc_tab_ajoute(BlocTab *tab, Bloc bloc)
+{
+    if (tab == NULL) {
         return -1;
+    }
 
     if (tab->nb == tab->cap) {
-        size_t cap_nouv = tab->cap ? tab->cap * 2 : 16;
-        Bloc *tmp = (Bloc *)realloc(tab->tab, cap_nouv * sizeof(Bloc));
-        if (!tmp)
+        size_t nouvelle_capacite = tab->cap ? tab->cap * 2 : 16;
+        Bloc *nouveau = (Bloc *)realloc(tab->tab, nouvelle_capacite * sizeof(Bloc));
+        if (nouveau == NULL) {
             return -1;
-        tab->tab = tmp;
-        tab->cap = cap_nouv;
+        }
+        tab->tab = nouveau;
+        tab->cap = nouvelle_capacite;
     }
+
     tab->tab[tab->nb++] = bloc;
     return 0;
-
 }
 
-static int tri_bloc_y(const void *a, const void *b) {
+static int tri_bloc_y(const void *a, const void *b)
+{
     const Bloc *ba = (const Bloc *)a;
     const Bloc *bb = (const Bloc *)b;
-    if (ba->y_min != bb->y_min)
+
+    if (ba->y_min != bb->y_min) {
         return ba->y_min - bb->y_min;
+    }
     return ba->x_min - bb->x_min;
 }
 
-
-static int tri_bloc_x(const void *a, const void *b) {
+static int tri_bloc_x(const void *a, const void *b)
+{
     const Bloc *ba = (const Bloc *)a;
     const Bloc *bb = (const Bloc *)b;
-    if (ba->x_min != bb->x_min)
+
+    if (ba->x_min != bb->x_min) {
         return ba->x_min - bb->x_min;
+    }
     return ba->y_min - bb->y_min;
 }
 
-
-static int tri_double(const void *a, const void *b) {
+static int tri_double(const void *a, const void *b)
+{
     double da = *(const double *)a;
     double db = *(const double *)b;
-    if (da < db) return -1;
 
-    if (da > db) return 1;
+    if (da < db) {
+        return -1;
+    }
+    if (da > db) {
+        return 1;
+    }
     return 0;
 }
 
-static double copie_mediane(const double *vals, size_t nb) {
-    if (nb == 0)
+static double copie_mediane(const double *vals, size_t nb)
+{
+    if (nb == 0) {
         return 0.0;
-    double *tmp = (double *)malloc(nb * sizeof(double));
-    if (!tmp)
-        return vals[0];
+    }
 
+    double *tmp = (double *)malloc(nb * sizeof(double));
+    if (!tmp) {
+        return vals[0];
+    }
 
     memcpy(tmp, vals, nb * sizeof(double));
     qsort(tmp, nb, sizeof(double), tri_double);
+
     double med;
-    if (nb % 2 == 1)
+    if (nb % 2 == 1) {
         med = tmp[nb / 2];
-    else
+    } else {
         med = 0.5 * (tmp[nb / 2 - 1] + tmp[nb / 2]);
+    }
 
     free(tmp);
     return med;
 }
 
-static int remplis_blc(const unsigned char *pix,int larg,int haut,unsigned char *vu,int sx,int sy,int seuil,Bloc *res,int *pile,size_t t_pile) {
+static int remplis_blc(const unsigned char *pix,
+                       int larg,int haut,
+                       unsigned char *vu,
+                       int sx, int sy,
+                       int seuil, Bloc *res,int *pile,
+                       size_t taille_pile)
+{
     size_t top = 0;
     size_t idx = (size_t)sy * (size_t)larg + (size_t)sx;
     pile[top++] = (int)idx;
-
     vu[idx] = 1;
 
     int x_min = sx;
@@ -119,57 +139,69 @@ static int remplis_blc(const unsigned char *pix,int larg,int haut,unsigned char 
         {1, 1}, {1, -1}, {-1, 1}, {-1, -1}
     };
 
-
     while (top > 0) {
         int cur = pile[--top];
         int cx = cur % larg;
-
         int cy = cur / larg;
         aire++;
 
-        if (cx < x_min) x_min = cx;
-        if (cx > x_max) x_max = cx;
-        if (cy < y_min) y_min = cy;
-        if (cy > y_max) y_max = cy;
+        if (cx < x_min) {
+            x_min = cx;
+        }
+        if (cx > x_max) {
+            x_max = cx;
+        }
+        if (cy < y_min) {
+            y_min = cy;
+        }
+        if (cy > y_max) {
+            y_max = cy;
+        }
 
-        for (size_t n = 0; n < 8; ++n) {
-            int nx = cx + voisins[n][0];
-            int ny = cy + voisins[n][1];
-            if (nx < 0 || ny < 0 || nx >= larg || ny >= haut)
+        for (size_t i = 0; i < 8; ++i) {
+            int nx = cx + voisins[i][0];
+            int ny = cy + voisins[i][1];
+
+            if (nx < 0 || ny < 0 || nx >= larg || ny >= haut) {
                 continue;
+            }
             size_t nidx = (size_t)ny * (size_t)larg + (size_t)nx;
-            if (vu[nidx])
+            if (vu[nidx]) {
                 continue;
-            if (pix[nidx] > seuil)
+            }
+            if (pix[nidx] > seuil) 
+            {
                 continue;
-            if (top >= t_pile)
+            }
+            if (top >= taille_pile) {
                 continue;
-
+            }
             vu[nidx] = 1;
             pile[top++] = (int)nidx;
         }
     }
 
-    if (res) {
+    if (res != NULL) {
         res->x_min = x_min;
         res->x_max = x_max;
         res->y_min = y_min;
+
         res->y_max = y_max;
         res->aire = aire;
     }
     return aire;
 }
 
-static int trouve_blocs(const unsigned char *pix,
-                        int larg,
-                        int haut,
-                        BlocTab *tab) {
+static int trouve_blocs(const unsigned char *pix, int larg, int haut, BlocTab *tab)
+{
     const int seuil = 220;
     size_t nb_pix = (size_t)larg * (size_t)haut;
 
     unsigned char *vu = (unsigned char *)calloc(nb_pix, 1);
-    if (!vu)
+    if (!vu) {
         return -1;
+    }
+
     int *pile = (int *)malloc(nb_pix * sizeof(int));
     if (!pile) {
         free(vu);
@@ -177,27 +209,40 @@ static int trouve_blocs(const unsigned char *pix,
     }
 
     for (int y = 0; y < haut; ++y) {
-
         for (int x = 0; x < larg; ++x) {
             size_t pos = (size_t)y * (size_t)larg + (size_t)x;
-            if (vu[pos])
+            if (vu[pos]) {
                 continue;
-            if (pix[pos] > seuil)
+            }
+
+            if (pix[pos] > seuil) 
+            {
                 continue;
+            }
+
+
             Bloc bloc;
             int aire = remplis_blc(pix, larg, haut, vu, x, y, seuil, &bloc, pile, nb_pix);
-            if (aire <= 0)
+            if (aire <= 0) {
                 continue;
+            }
             int bloc_larg = bloc.x_max - bloc.x_min + 1;
             int bloc_haut = bloc.y_max - bloc.y_min + 1;
-            if (bloc_larg < 2 || bloc_haut < 2)
+            if (bloc_larg < 2 || bloc_haut < 2) 
+            {
                 continue;
+            }
             double ratio = (double)bloc_larg / (double)bloc_haut;
+            if (ratio < 0.08 || ratio > 12.0) 
+            {
+                continue;
+            }
 
-            if (ratio < 0.08 || ratio > 12.0)
+            if ((double)aire < (double)(bloc_larg * bloc_haut) * 0.1) 
+            {
                 continue;
-            if ((double)aire < (double)(bloc_larg * bloc_haut) * 0.1)
-                continue;
+            }
+
             bloc.aire = aire;
             if (bloc_tab_ajoute(tab, bloc) != 0) {
                 free(pile);
@@ -207,74 +252,72 @@ static int trouve_blocs(const unsigned char *pix,
         }
     }
 
-
-
     free(pile);
     free(vu);
-    if (tab->nb == 0)
+
+    if (tab->nb == 0) {
         return -1;
+    }
 
     double somme = 0.0;
-    for (size_t i = 0; i < tab->nb; ++i)
+    for (size_t i = 0; i < tab->nb; ++i) {
         somme += (double)tab->tab[i].aire;
-    double moy = somme / (double)tab->nb;
-    double seuil_air = moy * 0.2;
-    if (seuil_air < 4.0)
+    }
+    double moyenne = somme / (double)tab->nb;
+    double seuil_air = moyenne * 0.2;
+    if (seuil_air < 4.0) {
         seuil_air = 4.0;
+    }
 
     size_t ecrit = 0;
     for (size_t i = 0; i < tab->nb; ++i) {
         Bloc bloc = tab->tab[i];
-        if ((double)bloc.aire >= seuil_air)
+        if ((double)bloc.aire >= seuil_air) {
             tab->tab[ecrit++] = bloc;
+        }
     }
 
     tab->nb = ecrit;
-
-    return tab->nb > 0 ? 0 : -1;
+    return (tab->nb > 0) ? 0 : -1;
 }
 
-static int ajoute_lot(LotLig **lots,
-                      size_t *nb,
-                      size_t *cap,
-                      size_t debut,
-                      size_t nb_blocs) {
+static int ajoute_lot(LotLig **lots, size_t *nb, size_t *cap, size_t debut, size_t nb_blocs)
+{
     if (*nb == *cap) {
-        size_t cap_nouv = *cap ? *cap * 2 : 8;
-
-        LotLig *tmp = (LotLig *)realloc(*lots, cap_nouv * sizeof(LotLig));
-        if (!tmp)
+        size_t nouvelle_capacite = *cap ? *cap * 2 : 8;
+        LotLig *tmp = (LotLig *)realloc(*lots, nouvelle_capacite * sizeof(LotLig));
+        if (!tmp) {
             return -1;
+        }
         *lots = tmp;
-        *cap = cap_nouv;
+        *cap = nouvelle_capacite;
     }
+
     (*lots)[(*nb)++] = (LotLig){debut, nb_blocs};
     return 0;
 }
 
 static int grille_depuis_blocs(const unsigned char *pix,
-                               int larg,
-                               int haut,
-
-                               const char *dossier,
-                               BlocTab *tab,
-                               LotLig *lots,
-                               size_t nb_lots) {
-    if (nb_lots < 2 || tab->nb < 2)
+                               int larg,int haut,
+                               const char *dossier,BlocTab *tab,
+                               LotLig *lots,size_t nb_lots)
+{
+    if (nb_lots < 2 || tab->nb < 2) {
         return -1;
+    }
 
     typedef struct {
         double haut;
         double bas;
         double centre;
         size_t debut;
-
         size_t nb;
     } InfosLig;
 
     InfosLig *infos = (InfosLig *)malloc(nb_lots * sizeof(InfosLig));
-    if (!infos)
+    if (!infos) {
         return -1;
+    }
 
     double *hauteurs = (double *)malloc(nb_lots * sizeof(double));
     if (!hauteurs) {
@@ -286,32 +329,39 @@ static int grille_depuis_blocs(const unsigned char *pix,
     double tot_haut = 0.0;
     for (size_t i = 0; i < tab->nb; ++i) {
         double w = (double)(tab->tab[i].x_max - tab->tab[i].x_min + 1);
-
         double h = (double)(tab->tab[i].y_max - tab->tab[i].y_min + 1);
         tot_larg += w;
         tot_haut += h;
     }
     double moy_larg = tot_larg / (double)tab->nb;
     double moy_haut = tot_haut / (double)tab->nb;
-    if (moy_larg < 1.0) moy_larg = 1.0;
-    if (moy_haut < 1.0) moy_haut = 1.0;
+    if (moy_larg < 1.0) {
+        moy_larg = 1.0;
+    }
+    if (moy_haut < 1.0) {
+        moy_haut = 1.0;
+    }
 
     for (size_t i = 0; i < nb_lots; ++i) {
         LotLig lot = lots[i];
         double haut_l = (double)haut;
         double bas_l = 0.0;
+
         for (size_t k = 0; k < lot.nb; ++k) {
             const Bloc *bloc = &tab->tab[lot.debut + k];
-
-            if ((double)bloc->y_min < haut_l)
+            if ((double)bloc->y_min < haut_l) {
                 haut_l = (double)bloc->y_min;
-            if ((double)(bloc->y_max + 1) > bas_l)
+            }
+            if ((double)(bloc->y_max + 1) > bas_l) {
                 bas_l = (double)(bloc->y_max + 1);
+            }
         }
+
         if (bas_l <= haut_l) {
             haut_l = 0.0;
             bas_l = 0.0;
         }
+
         infos[i].haut = haut_l;
         infos[i].bas = bas_l;
         infos[i].centre = 0.5 * (haut_l + bas_l);
@@ -341,16 +391,14 @@ static int grille_depuis_blocs(const unsigned char *pix,
     for (size_t i = 0; i < nb_lots; ++i) {
         size_t freq = 0;
         for (size_t j = 0; j < nb_lots; ++j) {
-            if (lots[j].nb == lots[i].nb)
+            if (lots[j].nb == lots[i].nb) {
                 freq++;
+            }
         }
         if (freq > freq_opt || (freq == freq_opt && lots[i].nb > cible_col)) {
             freq_opt = freq;
             cible_col = lots[i].nb;
         }
-
-
-
     }
     if (cible_col < 2) {
         free(idx_ok);
@@ -362,13 +410,16 @@ static int grille_depuis_blocs(const unsigned char *pix,
     size_t nb_ok = 0;
     for (size_t i = 0; i < nb_lots; ++i) {
         double h = hauteurs[i];
-        if (h < mini_haut || h > maxi_haut)
+        if (h < mini_haut || h > maxi_haut) {
             continue;
-        size_t bloc_nb = lots[i].nb;
-        if (bloc_nb < 2)
+        }
+        size_t nb_blocs = lots[i].nb;
+        if (nb_blocs < 2) {
             continue;
-        if ((double)bloc_nb < (double)cible_col * 0.6)
+        }
+        if ((double)nb_blocs < (double)cible_col * 0.6) {
             continue;
+        }
         idx_ok[nb_ok++] = i;
     }
 
@@ -386,8 +437,9 @@ static int grille_depuis_blocs(const unsigned char *pix,
         free(infos);
         return -1;
     }
-    for (size_t i = 0; i < nb_ok; ++i)
+    for (size_t i = 0; i < nb_ok; ++i) {
         centres[i] = infos[idx_ok[i]].centre;
+    }
 
     double *ecarts = NULL;
     size_t nb_ecarts = 0;
@@ -401,21 +453,24 @@ static int grille_depuis_blocs(const unsigned char *pix,
             free(infos);
             return -1;
         }
-        for (size_t i = 0; i < nb_ecarts; ++i)
+        for (size_t i = 0; i < nb_ecarts; ++i) {
             ecarts[i] = centres[i + 1] - centres[i];
-            
+        }
     }
 
     double med_ecart = nb_ecarts ? copie_mediane(ecarts, nb_ecarts) : 0.0;
-    if (med_ecart <= 0.0)
+    if (med_ecart <= 0.0) {
         med_ecart = moy_haut;
-    if (med_ecart <= 0.0)
+    }
+    if (med_ecart <= 0.0) {
         med_ecart = 1.0;
+    }
 
     double mini_ecart = med_ecart * 0.5;
     double maxi_ecart = med_ecart * 1.8;
-    if (mini_ecart < 1.0)
+    if (mini_ecart < 1.0) {
         mini_ecart = 1.0;
+    }
 
     size_t best_deb = 0;
     size_t best_len = 1;
@@ -462,22 +517,26 @@ static int grille_depuis_blocs(const unsigned char *pix,
         free(infos);
         return -1;
     }
-    for (size_t i = 0; i < best_len; ++i)
+    for (size_t i = 0; i < best_len; ++i) {
         lignes_finales[i] = idx_ok[best_deb + i];
+    }
 
     size_t col_final = 0;
     size_t col_freq = 0;
     for (size_t i = 0; i < best_len; ++i) {
-        size_t bloc_nb = lots[lignes_finales[i]].nb;
+        size_t nb_blocs = lots[lignes_finales[i]].nb;
         size_t freq = 0;
-        for (size_t j = 0; j < best_len; ++j)
-            if (lots[lignes_finales[j]].nb == bloc_nb)
+        for (size_t j = 0; j < best_len; ++j) {
+            if (lots[lignes_finales[j]].nb == nb_blocs) {
                 freq++;
-        if (freq > col_freq || (freq == col_freq && bloc_nb > col_final)) {
+            }
+        }
+        if (freq > col_freq || (freq == col_freq && nb_blocs > col_final)) {
             col_freq = freq;
-            col_final = bloc_nb;
+            col_final = nb_blocs;
         }
     }
+
     if (col_final < 2) {
         free(lignes_finales);
         free(ecarts);
@@ -491,8 +550,9 @@ static int grille_depuis_blocs(const unsigned char *pix,
     size_t nb_filtre = 0;
     for (size_t i = 0; i < best_len; ++i) {
         size_t idx = lignes_finales[i];
-        if (lots[idx].nb >= col_final)
+        if (lots[idx].nb >= col_final) {
             lignes_finales[nb_filtre++] = idx;
+        }
     }
     if (nb_filtre < 2) {
         free(lignes_finales);
@@ -505,11 +565,13 @@ static int grille_depuis_blocs(const unsigned char *pix,
     }
 
     double marge_y = moy_haut * 0.3;
-    if (marge_y < 1.0)
+    if (marge_y < 1.0) {
         marge_y = 1.0;
+    }
     double marge_x = moy_larg * 0.3;
-    if (marge_x < 1.0)
+    if (marge_x < 1.0) {
         marge_x = 1.0;
+    }
 
     size_t nb_lignes = nb_filtre;
     double *tops = (double *)malloc(nb_lignes * sizeof(double));
@@ -526,9 +588,9 @@ static int grille_depuis_blocs(const unsigned char *pix,
         return -1;
     }
     for (size_t i = 0; i < nb_lignes; ++i) {
-        InfosLig *info = &infos[lignes_finales[i]];
-        tops[i] = info->haut;
-        bas[i] = info->bas;
+        InfosLig info = infos[lignes_finales[i]];
+        tops[i] = info.haut;
+        bas[i] = info.bas;
     }
 
     double *col_g = (double *)malloc(col_final * sizeof(double));
@@ -598,34 +660,40 @@ static int grille_depuis_blocs(const unsigned char *pix,
     }
 
     lim_h[0] = tops[0] - marge_y;
-    if (lim_h[0] < 0.0)
+    if (lim_h[0] < 0.0) {
         lim_h[0] = 0.0;
+    }
     for (size_t i = 1; i < nb_lignes; ++i) {
         double bas_prec = bas[i - 1];
         double haut_cour = tops[i];
         double milieu = 0.5 * (bas_prec + haut_cour);
-        if (milieu <= lim_h[i - 1])
+        if (milieu <= lim_h[i - 1]) {
             milieu = lim_h[i - 1] + 1.0;
+        }
         lim_h[i] = milieu;
     }
     lim_h[nb_lignes] = bas[nb_lignes - 1] + marge_y;
-    if (lim_h[nb_lignes] > (double)haut)
+    if (lim_h[nb_lignes] > (double)haut) {
         lim_h[nb_lignes] = (double)haut;
+    }
 
     lim_v[0] = col_g[0] - marge_x;
-    if (lim_v[0] < 0.0)
+    if (lim_v[0] < 0.0) {
         lim_v[0] = 0.0;
+    }
     for (size_t c = 1; c < col_final; ++c) {
         double droite_prec = col_d[c - 1];
         double gauche_cour = col_g[c];
         double milieu = 0.5 * (droite_prec + gauche_cour);
-        if (milieu <= lim_v[c - 1])
+        if (milieu <= lim_v[c - 1]) {
             milieu = lim_v[c - 1] + 1.0;
+        }
         lim_v[c] = milieu;
     }
     lim_v[col_final] = col_d[col_final - 1] + marge_x;
-    if (lim_v[col_final] > (double)larg)
+    if (lim_v[col_final] > (double)larg) {
         lim_v[col_final] = (double)larg;
+    }
 
     Bande *band_h = (Bande *)malloc((nb_lignes + 1) * sizeof(Bande));
     Bande *band_v = (Bande *)malloc((col_final + 1) * sizeof(Bande));
@@ -651,10 +719,18 @@ static int grille_depuis_blocs(const unsigned char *pix,
     int dernier = -1;
     for (size_t i = 0; i < nb_lignes + 1; ++i) {
         int y = (int)lround(lim_h[i]);
-        if (y < 0) y = 0;
-        if (y > haut) y = haut;
-        if (y <= dernier) y = dernier + 1;
-        if (y > haut) y = haut;
+        if (y < 0) {
+            y = 0;
+        }
+        if (y > haut) {
+            y = haut;
+        }
+        if (y <= dernier) {
+            y = dernier + 1;
+        }
+        if (y > haut) {
+            y = haut;
+        }
         band_h[i].deb = y;
         band_h[i].fin = y;
         dernier = y;
@@ -663,16 +739,36 @@ static int grille_depuis_blocs(const unsigned char *pix,
     dernier = -1;
     for (size_t i = 0; i < col_final + 1; ++i) {
         int x = (int)lround(lim_v[i]);
-        if (x < 0) x = 0;
-        if (x > larg) x = larg;
-        if (x <= dernier) x = dernier + 1;
-        if (x > larg) x = larg;
+        if (x < 0) {
+            x = 0;
+        }
+        if (x > larg) {
+            x = larg;
+        }
+        if (x <= dernier) {
+            x = dernier + 1;
+        }
+        if (x > larg) {
+            x = larg;
+        }
         band_v[i].deb = x;
         band_v[i].fin = x;
         dernier = x;
     }
 
-    int extrait = couper_cases(pix, larg, haut,band_h, nb_lignes + 1,band_v, col_final + 1,0, dossier, NULL, NULL, 0, NULL);
+    int extrait = couper_cases(pix,
+                               larg,
+                               haut,
+                               band_h,
+                               nb_lignes + 1,
+                               band_v,
+                               col_final + 1,
+                               0,
+                               dossier,
+                               NULL,
+                               NULL,
+                               0,
+                               NULL);
 
     free(band_v);
     free(band_h);
@@ -690,18 +786,18 @@ static int grille_depuis_blocs(const unsigned char *pix,
     free(hauteurs);
     free(infos);
 
-    if (extrait <= 0)
+    if (extrait <= 0) {
         return -1;
+    }
     printf("Grille synthetisee: %d cellules sauvegardees dans %s\n", extrait, dossier);
     return 0;
 }
 
-int decoupe_lettres(const unsigned char *pix,
-                    int larg,
-                    int haut,
-                    const char *dossier) {
-    if (pret_dossier(dossier) != 0)
+int decoupe_lettres(const unsigned char *pix, int larg, int haut, const char *dossier)
+{
+    if (pret_dossier(dossier) != 0) {
         return -1;
+    }
 
     BlocTab tab = {0};
     if (trouve_blocs(pix, larg, haut, &tab) != 0) {
@@ -723,15 +819,19 @@ int decoupe_lettres(const unsigned char *pix,
     qsort(tab.tab, tab.nb, sizeof(Bloc), tri_bloc_y);
 
     double somme_h = 0.0;
-    for (size_t i = 0; i < tab.nb; ++i)
+    for (size_t i = 0; i < tab.nb; ++i) {
         somme_h += (double)(tab.tab[i].y_max - tab.tab[i].y_min + 1);
+    }
+
     double moy_h = somme_h / (double)tab.nb;
-    if (moy_h < 1.0)
+    if (moy_h < 1.0) {
         moy_h = 1.0;
+    }
 
     double seuil_ligne = moy_h * 0.75;
-    if (seuil_ligne < 2.0)
+    if (seuil_ligne < 2.0) {
         seuil_ligne = 2.0;
+    }
 
     size_t deb = 0;
     size_t nb_blocs = 0;
@@ -749,9 +849,7 @@ int decoupe_lettres(const unsigned char *pix,
             if (ajoute_lot(&lots, &nb_lots, &cap_lots, deb, nb_blocs) != 0) {
                 free(lots);
                 bloc_tab_libere(&tab);
-
                 fprintf(stderr, "Allocation memoire echouee.\n");
-
                 return -1;
             }
             deb = i;
@@ -774,7 +872,6 @@ int decoupe_lettres(const unsigned char *pix,
 
     if (nb_lots == 0) {
         free(lots);
-
         bloc_tab_libere(&tab);
         fprintf(stderr, "Impossible de structurer les lettres en lignes.\n");
         return -1;
@@ -782,14 +879,14 @@ int decoupe_lettres(const unsigned char *pix,
 
     for (size_t r = 0; r < nb_lots; ++r) {
         LotLig lot = lots[r];
-        if (lot.nb > 0)
+        if (lot.nb > 0) {
             qsort(tab.tab + lot.debut, lot.nb, sizeof(Bloc), tri_bloc_x);
+        }
     }
 
     if (grille_depuis_blocs(pix, larg, haut, dossier, &tab, lots, nb_lots) == 0) {
         free(lots);
         bloc_tab_libere(&tab);
-
         return 0;
     }
 
@@ -797,42 +894,48 @@ int decoupe_lettres(const unsigned char *pix,
     int sauver = 0;
     for (size_t r = 0; r < nb_lots; ++r) {
         LotLig lot = lots[r];
-        if (lot.nb == 0)
+        if (lot.nb == 0) {
             continue;
+        }
         for (size_t c = 0; c < lot.nb; ++c) {
             Bloc *bloc = &tab.tab[lot.debut + c];
-            int x_g = bloc->x_min - marge;
-
-            if (x_g < 0) x_g = 0;
+            int x_gauche = bloc->x_min - marge;
+            if (x_gauche < 0) {
+                x_gauche = 0;
+            }
             int y_haut = bloc->y_min - marge;
-
-            if (y_haut < 0) y_haut = 0;
-            int x_d = bloc->x_max + marge + 1;
-
-            if (x_d > larg) x_d = larg;
+            if (y_haut < 0) {
+                y_haut = 0;
+            }
+            int x_droite = bloc->x_max + marge + 1;
+            if (x_droite > larg) {
+                x_droite = larg;
+            }
             int y_bas = bloc->y_max + marge + 1;
+            if (y_bas > haut) {
+                y_bas = haut;
+            }
 
-            if (y_bas > haut) y_bas = haut;
             int w = 0;
             int h = 0;
-            unsigned char *case_pix = prendre_case(pix, larg, x_g, y_haut, x_d, y_bas, &w, &h);
-
-            if (!case_pix)
+            unsigned char *case_pix = prendre_case(pix, larg, x_gauche, y_haut, x_droite, y_bas, &w, &h);
+            if (!case_pix) {
                 continue;
-
-            if (sauver_case(dossier, c, r, case_pix, w, h, w) == 0)
+            }
+            if (sauver_case(dossier, c, r, case_pix, w, h, w) == 0) {
                 sauver++;
-                
+            }
             free(case_pix);
         }
     }
 
-    if (sauver > 0)
+    if (sauver > 0) {
         printf("Extraction terminee: %d lettres sauvegardees dans %s\n", sauver, dossier);
-    else
+    } else {
         fprintf(stderr, "Aucune lettre sauvegardee.\n");
+    }
 
     free(lots);
     bloc_tab_libere(&tab);
-    return sauver > 0 ? 0 : -1;
+    return (sauver > 0) ? 0 : -1;
 }
