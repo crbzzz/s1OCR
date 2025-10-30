@@ -7,9 +7,6 @@ Structure :
 - data/letters/ : resultat du decoupage cellule par cellule (col,lig.png).
 - data/mots/ : destination suggeree pour les lettres reconstituees mot par mot.
 
-Commandes utiles :
-make -C decoupage_grille            # compile grid_splitter
-make -C decoupage_grille mots      # compile mots_extraction
 
 Pipeline type :
 1. make -C decoupage_grille
