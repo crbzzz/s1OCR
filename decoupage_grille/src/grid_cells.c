@@ -3,6 +3,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef _WIN32
+#include <io.h>
+#else
+#include <dirent.h>
+#include <strings.h>
+#endif
 
 unsigned char *prendre_case(const unsigned char *img, int larg_img, int x0, int y0, int x1, int y1, int *ret_larg, int *ret_haut)
 {
@@ -167,4 +173,232 @@ int cases_uniformes(const double *tab_larg, const double *tab_haut, size_t nb)
         return 0;
     }
     return 1;
+}
+
+typedef struct {
+    char nom[512];
+} FichierPNG;
+
+static void libere_liste_png(FichierPNG *liste)
+{
+    free(liste);
+}
+
+static int ajoute_png(FichierPNG **liste, size_t *nb, size_t *cap, const char *nom)
+{
+    if (*nb == *cap) {
+        size_t nouvelle_capacite = (*cap == 0) ? 32 : *cap * 2;
+        FichierPNG *tmp = (FichierPNG *)realloc(*liste, nouvelle_capacite * sizeof(FichierPNG));
+        if (!tmp) {
+            return -1;
+        }
+        *liste = tmp;
+        *cap = nouvelle_capacite;
+    }
+    strncpy((*liste)[*nb].nom, nom, sizeof((*liste)[*nb].nom) - 1);
+    (*liste)[*nb].nom[sizeof((*liste)[*nb].nom) - 1] = '\0';
+    (*nb)++;
+    return 0;
+}
+
+static int collecte_png(const char *dossier, FichierPNG **liste, size_t *nb)
+{
+    size_t cap = 0;
+    *liste = NULL;
+    *nb = 0;
+
+#ifdef _WIN32
+    char pattern[1024];
+    int n = snprintf(pattern, sizeof(pattern), "%s\\*.png", dossier);
+    if (n < 0 || (size_t)n >= sizeof(pattern)) {
+        return -1;
+    }
+
+    struct _finddata_t data;
+    intptr_t handle = _findfirst(pattern, &data);
+    if (handle == -1) {
+        return 0;
+    }
+
+    do {
+        if (data.attrib & _A_SUBDIR) {
+            continue;
+        }
+        if (ajoute_png(liste, nb, &cap, data.name) != 0) {
+            _findclose(handle);
+            libere_liste_png(*liste);
+            *liste = NULL;
+            *nb = 0;
+            return -1;
+        }
+    } while (_findnext(handle, &data) == 0);
+    _findclose(handle);
+#else
+    DIR *dir = opendir(dossier);
+    if (!dir) {
+        return -1;
+    }
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+        #ifdef DT_DIR
+        if (entry->d_type == DT_DIR) {
+            continue;
+        }
+        #endif
+        const char *nom = entry->d_name;
+        size_t len = strlen(nom);
+        if (len < 4) {
+            continue;
+        }
+        const char *ext = nom + len - 4;
+        if (strcasecmp(ext, ".png") != 0) {
+            continue;
+        }
+        if (ajoute_png(liste, nb, &cap, nom) != 0) {
+            closedir(dir);
+            libere_liste_png(*liste);
+            *liste = NULL;
+            *nb = 0;
+            return -1;
+        }
+    }
+    closedir(dir);
+#endif
+    return 0;
+}
+
+static int largeur_max(const char *chemin, int *larg, int *haut)
+{
+    int w = 0;
+    int h = 0;
+    int canaux = 0;
+    unsigned char *img = charger_image(chemin, &w, &h, &canaux);
+    if (!img) {
+        return -1;
+    }
+    liberer_image(img);
+    if (larg) {
+        *larg = w;
+    }
+    if (haut) {
+        *haut = h;
+    }
+    return 0;
+}
+
+static int padding_image(const char *chemin, int cible_larg, int cible_haut)
+{
+    int w = 0;
+    int h = 0;
+    int canaux = 0;
+    unsigned char *src = charger_image(chemin, &w, &h, &canaux);
+    if (!src) {
+        return -1;
+    }
+
+    if (w == cible_larg && h == cible_haut) {
+        liberer_image(src);
+        return 0;
+    }
+
+    size_t total = (size_t)cible_larg * (size_t)cible_haut;
+    unsigned char *dst = (unsigned char *)malloc(total);
+    if (!dst) {
+        liberer_image(src);
+        return -1;
+    }
+    memset(dst, 255, total);
+
+    if (w > cible_larg) {
+        w = cible_larg;
+    }
+    if (h > cible_haut) {
+        h = cible_haut;
+    }
+
+    int offset_x = (cible_larg - w) / 2;
+    int offset_y = (cible_haut - h) / 2;
+    if (offset_x < 0) {
+        offset_x = 0;
+    }
+    if (offset_y < 0) {
+        offset_y = 0;
+    }
+
+    for (int y = 0; y < h; ++y) {
+        memcpy(dst + (size_t)(offset_y + y) * (size_t)cible_larg + (size_t)offset_x,
+               src + (size_t)y * (size_t)w,
+               (size_t)w);
+    }
+
+    int rc = ecrire_png(chemin, cible_larg, cible_haut, 1, dst, cible_larg);
+    free(dst);
+    liberer_image(src);
+    return rc;
+}
+
+int uniformiser_cases(const char *dossier)
+{
+    if (!dossier || !*dossier) {
+        return -1;
+    }
+
+    FichierPNG *liste = NULL;
+    size_t nb = 0;
+    if (collecte_png(dossier, &liste, &nb) != 0) {
+        return -1;
+    }
+    if (nb == 0) {
+        libere_liste_png(liste);
+        return 0;
+    }
+
+    int max_larg = 0;
+    int max_haut = 0;
+    for (size_t i = 0; i < nb; ++i) {
+        char chemin[1024];
+#ifdef _WIN32
+        int n = snprintf(chemin, sizeof(chemin), "%s\\%s", dossier, liste[i].nom);
+#else
+        int n = snprintf(chemin, sizeof(chemin), "%s/%s", dossier, liste[i].nom);
+#endif
+        if (n < 0 || (size_t)n >= sizeof(chemin)) {
+            continue;
+        }
+        int w = 0;
+        int h = 0;
+        if (largeur_max(chemin, &w, &h) != 0) {
+            continue;
+        }
+        if (w > max_larg) {
+            max_larg = w;
+        }
+        if (h > max_haut) {
+            max_haut = h;
+        }
+    }
+
+    if (max_larg <= 0 || max_haut <= 0) {
+        libere_liste_png(liste);
+        return 0;
+    }
+
+    for (size_t i = 0; i < nb; ++i) {
+        char chemin[1024];
+#ifdef _WIN32
+        int n = snprintf(chemin, sizeof(chemin), "%s\\%s", dossier, liste[i].nom);
+#else
+        int n = snprintf(chemin, sizeof(chemin), "%s/%s", dossier, liste[i].nom);
+#endif
+        if (n < 0 || (size_t)n >= sizeof(chemin)) {
+            continue;
+        }
+        padding_image(chemin, max_larg, max_haut);
+    }
+
+    libere_liste_png(liste);
+    return 0;
 }

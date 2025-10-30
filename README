@@ -46,8 +46,8 @@ Rendu binaire :
 3. Sauvegarde l'image binaire dans le dossier out/
 
 Rendu Decoupage_grille :
-    make -C decoupage_grille
-    ./decoupage_grille/grid_splitter decoupage_grille/data/clean_grid/<image> decoupage_grille/data/letters
+    make 
+    ./grid_splitter data/clean_grid/<image> data/letters
 
 
 
