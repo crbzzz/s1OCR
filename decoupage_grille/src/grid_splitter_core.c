@@ -46,6 +46,9 @@ int decoupe_grille(const unsigned char *pix, int larg, int haut, const char *dos
             free(tab_h);
 
             if (ok) {
+                if (uniformiser_cases(dossier) != 0) {
+                    fprintf(stderr, "Normalisation impossible sur %s\n", dossier);
+                }
                 printf("Fini");
                 return 0;
             }

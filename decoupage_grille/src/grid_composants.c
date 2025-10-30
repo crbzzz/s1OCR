@@ -417,7 +417,7 @@ static int grille_depuis_blocs(const unsigned char *pix,
         if (nb_blocs < 2) {
             continue;
         }
-        if ((double)nb_blocs < (double)cible_col * 0.6) {
+        if (nb_blocs != cible_col) {
             continue;
         }
         idx_ok[nb_ok++] = i;
@@ -550,7 +550,7 @@ static int grille_depuis_blocs(const unsigned char *pix,
     size_t nb_filtre = 0;
     for (size_t i = 0; i < best_len; ++i) {
         size_t idx = lignes_finales[i];
-        if (lots[idx].nb >= col_final) {
+        if (lots[idx].nb == col_final) {
             lignes_finales[nb_filtre++] = idx;
         }
     }
@@ -789,6 +789,9 @@ static int grille_depuis_blocs(const unsigned char *pix,
     if (extrait <= 0) {
         return -1;
     }
+    if (uniformiser_cases(dossier) != 0) {
+        fprintf(stderr, "Normalisation impossible sur %s\n", dossier);
+    }
     printf("grille valide\n");
     return 0;
 }
@@ -930,6 +933,9 @@ int decoupe_lettres(const unsigned char *pix, int larg, int haut, const char *do
     }
 
     if (sauver > 0) {
+        if (uniformiser_cases(dossier) != 0) {
+            fprintf(stderr, "Normalisation impossible sur %s\n", dossier);
+        }
         printf("fini\n");
     } else {
         fprintf(stderr, "Erreur.\n");
