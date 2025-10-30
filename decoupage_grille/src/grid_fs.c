@@ -44,11 +44,14 @@ int creer_dossier(const char *chem) {
 #else
     if (mkdir(chem, 0755) == 0)
         return 0;
+
     if (errno == EEXIST)
         return 0;
+
     if (errno == ENOENT) {
         char tmp[1024];
         char *sep = strrchr(chem, '/');
+        
         if (!sep)
             return -1;
         size_t len = (size_t)(sep - chem);

@@ -762,7 +762,9 @@ int decoupe_lettres(const unsigned char *pix,
             if (ajoute_lot(&lots, &nb_lots, &cap_lots, deb, nb_blocs) != 0) {
                 free(lots);
                 bloc_tab_libere(&tab);
+
                 fprintf(stderr, "Allocation memoire echouee.\n");
+
                 return -1;
             }
             deb = i;
@@ -785,6 +787,7 @@ int decoupe_lettres(const unsigned char *pix,
 
     if (nb_lots == 0) {
         free(lots);
+
         bloc_tab_libere(&tab);
         fprintf(stderr, "Impossible de structurer les lettres en lignes.\n");
         return -1;
@@ -799,6 +802,7 @@ int decoupe_lettres(const unsigned char *pix,
     if (grille_depuis_blocs(pix, larg, haut, dossier, &tab, lots, nb_lots) == 0) {
         free(lots);
         bloc_tab_libere(&tab);
+
         return 0;
     }
 
@@ -811,20 +815,27 @@ int decoupe_lettres(const unsigned char *pix,
         for (size_t c = 0; c < lot.nb; ++c) {
             Bloc *bloc = &tab.tab[lot.debut + c];
             int x_g = bloc->x_min - marge;
+
             if (x_g < 0) x_g = 0;
             int y_haut = bloc->y_min - marge;
+
             if (y_haut < 0) y_haut = 0;
             int x_d = bloc->x_max + marge + 1;
+
             if (x_d > larg) x_d = larg;
             int y_bas = bloc->y_max + marge + 1;
+
             if (y_bas > haut) y_bas = haut;
             int w = 0;
             int h = 0;
             unsigned char *case_pix = prendre_case(pix, larg, x_g, y_haut, x_d, y_bas, &w, &h);
+
             if (!case_pix)
                 continue;
+
             if (sauver_case(dossier, c, r, case_pix, w, h, w) == 0)
                 sauver++;
+                
             free(case_pix);
         }
     }
