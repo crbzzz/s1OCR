@@ -45,6 +45,9 @@ Rendu binaire :
 2. Transforme l'image en binaire (noir et blanc)
 3. Sauvegarde l'image binaire dans le dossier out/
 
+Rendu Decoupage_grille :
+    make -C decoupage_grille
+    ./decoupage_grille/grid_splitter decoupage_grille/data/clean_grid/<image> decoupage_grille/data/letters
 
 
 
