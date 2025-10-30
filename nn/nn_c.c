@@ -128,11 +128,11 @@ int main() {
     printf("Combien d'epochs pour entraîner ? (ex: 5000) : ");
     if (scanf("%d", &epochs) != 1) {
         epochs = 5000;
-        printf("Entrée invalide, j'utilise 5000 epochs.\n");
+        printf("Erreur, 5k époch utilisées.\n");
     }
     double lr = 0.1;
     train_xor(epochs, lr, &params);
-    printf("\nRésultats (sorties réelles entre 0 et 1) :\n");
+    printf("\nRésultat :\n");
     double t0[2] = {0,0};
     double t1[2] = {0,1};
     double t2[2] = {1,0};

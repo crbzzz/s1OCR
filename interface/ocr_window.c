@@ -288,14 +288,14 @@ static void rotate_image(OcrAppWindow *self, gdouble angle_degrees) {
 
     GdkPixbuf *pix = gtk_image_get_pixbuf(GTK_IMAGE(self->image_widget));
     if (!pix) {
-        update_status_label(self, "Aucune image à faire pivoter.");
+        update_status_label(self, "faire message err.");
         return;
     }
 
     int sw, sh, sstride;
     unsigned char *src_rgba = pixbuf_to_rgba(pix, &sw, &sh, &sstride);
     if (!src_rgba) {
-        update_status_label(self, "Impossible de lire les pixels.");
+        update_status_label(self, "erreur.");
         return;
     }
 
@@ -305,14 +305,14 @@ static void rotate_image(OcrAppWindow *self, gdouble angle_degrees) {
     free(src_rgba);
 
     if (!rot) {
-        update_status_label(self, "Échec de la rotation.");
+        update_status_label(self, "Echec de rotation.");
         return;
     }
 
     GdkPixbuf *view = gdk_pixbuf_new(GDK_COLORSPACE_RGB, TRUE, 8, dw, dh);
     if (!view) {
         free(rot);
-        update_status_label(self, "Échec d’allocation pour l’affichage.");
+        update_status_label(self, "Pb mémoire.");
         return;
     }
 
@@ -328,7 +328,7 @@ static void rotate_image(OcrAppWindow *self, gdouble angle_degrees) {
 
     center_scroller(self->scroller);
 
-    gchar *msg = g_strdup_printf("Rotation appliquée : %.1f° (affiché %dx%d)", angle_degrees, dw, dh);
+    gchar *msg = g_strdup_printf("Rotation faite : %.1f° (affiché %dx%d)", angle_degrees, dw, dh);
     update_status_label(self, msg);
     g_free(msg);
 
@@ -377,7 +377,7 @@ static void on_enter_clicked(GtkButton *button, gpointer user_data) {
 static GtkWidget* build_header_bar(OcrAppWindow *self) {
     GtkWidget *header_bar = gtk_header_bar_new();
     gtk_header_bar_set_title(GTK_HEADER_BAR(header_bar), "Projet OCR");
-    gtk_header_bar_set_subtitle(GTK_HEADER_BAR(header_bar), "Sélectionnez une image pour démarrer");
+    gtk_header_bar_set_subtitle(GTK_HEADER_BAR(header_bar), "Sélectionner une image");
     gtk_header_bar_set_show_close_button(GTK_HEADER_BAR(header_bar), TRUE);
 
     GtkWidget *open_button = gtk_button_new_from_icon_name("document-open", GTK_ICON_SIZE_BUTTON);
@@ -393,7 +393,7 @@ static GtkWidget* build_header_bar(OcrAppWindow *self) {
     gtk_widget_set_tooltip_text(spin, "Angle de rotation");
 
     GtkWidget *rot_btn = gtk_button_new_from_icon_name("object-rotate-right", GTK_ICON_SIZE_BUTTON);
-    gtk_widget_set_tooltip_text(rot_btn, "Appliquer la rotation");
+    gtk_widget_set_tooltip_text(rot_btn, "Appliquer");
     gtk_style_context_add_class(gtk_widget_get_style_context(rot_btn), "accent-btn");
     g_signal_connect(rot_btn, "clicked", G_CALLBACK(on_rotate_clicked), self);
 
@@ -420,7 +420,7 @@ static GtkWidget* build_main_page(OcrAppWindow *self) {
     gtk_widget_set_valign(image, GTK_ALIGN_CENTER);
     gtk_container_add(GTK_CONTAINER(scroller), image);
 
-    GtkWidget *status = gtk_label_new("Aucune image chargée.");
+    GtkWidget *status = gtk_label_new("Pas d'image chargee.");
     gtk_label_set_xalign(GTK_LABEL(status), 0.0f);
     gtk_style_context_add_class(gtk_widget_get_style_context(status), "status");
 
@@ -486,11 +486,11 @@ static GtkWidget* build_home_page(OcrAppWindow *self) {
         "<span size='xx-large' weight='bold'>Projet OCR</span>");
     gtk_widget_set_halign(title, GTK_ALIGN_CENTER);
 
-    GtkWidget *subtitle = gtk_label_new("Analyse d’images et reconnaissance de texte");
+    GtkWidget *subtitle = gtk_label_new("Projet OCR");
     gtk_widget_set_halign(subtitle, GTK_ALIGN_CENTER);
 
     GtkWidget *enter_btn = gtk_button_new_with_label("Entrer");
-    gtk_widget_set_tooltip_text(enter_btn, "Accéder à l’application");
+    gtk_widget_set_tooltip_text(enter_btn, "Accéder à l’interface");
     gtk_style_context_add_class(gtk_widget_get_style_context(enter_btn), "hero-enter");
     g_signal_connect(enter_btn, "clicked", G_CALLBACK(on_enter_clicked), self);
 

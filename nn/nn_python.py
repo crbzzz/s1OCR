@@ -140,12 +140,12 @@ if __name__ == "__main__":
         epochs = int(input("Combien d'epochs pour entraîner ? (ex: 5000) : "))
     except:
         epochs = 5000
-        print("Entrée invalide, j'utilise 5000 epochs.")
+        print("Invalide, test sur 5k epoch")
 
     lr = 0.5
     params, history = train_xor(epochs, lr)
 
-    print("\nRésultats (sorties réelles entre 0 et 1) :")
+    print("\nRésultat :")
     tests = [[0,0],[0,1],[1,0],[1,1]]
     for x in tests:
         y = predict_value(x, params)

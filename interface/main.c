@@ -8,7 +8,7 @@ static void on_app_activate(GtkApplication *app, gpointer user_data) {
     OcrAppWindow *window = ocr_app_window_new(app);
     if (window == NULL) 
     {
-        g_critical("Erreur en créant la fenêtre.");
+        g_critical("Erreur.");
         return;
     }
 
