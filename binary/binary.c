@@ -21,18 +21,16 @@ static void basename_no_ext(const char* path, char* out, size_t n)
 {
     const char* p = path;
     const char* last_slash = path;
-    while (*p) 
-    { 
-        if (*p=='/'||*p=='\\') 
-        {
-            last_slash = p+1; p++; 
+    while (*p) {
+        if (*p == '/' || *p == '\\') {
+            last_slash = p + 1;
         }
+        p++;
     }
     const char* name = last_slash;
-    const char* dot = name + strlen(name);
-    while (dot>name && *dot!='.') dot--;
-    if (dot==name || *dot!='.') 
-    {
+
+    const char* dot = strrchr(name, '.');
+    if (!dot) {
         dot = name + strlen(name);
     }
     size_t len = (size_t)(dot - name);
