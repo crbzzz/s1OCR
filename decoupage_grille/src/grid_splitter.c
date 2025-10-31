@@ -48,11 +48,11 @@ typedef struct {
     int largeur;
     int hauteur;
     unsigned char *pixels;
-} ImageGris;
+} ImageSimple;
 
-static void liberer_image_gris(ImageGris *image) {
+static void liberer_image(ImageSimple *image) {
     if (image && image->pixels) {
-        free(image->pixels);
+        stbi_image_free(image->pixels);
         image->pixels = NULL;
     }
 }
@@ -127,89 +127,24 @@ static void nom_sans_extension(const char *fichier, char *tampon, size_t taille_
     tampon[longueur] = '\0';
 }
 
-static unsigned char seuil_otsu(const unsigned char *pixels, size_t nombre) {
-    unsigned long histogram[256] = {0};
-    for (size_t i = 0; i < nombre; ++i) {
-        histogram[pixels[i]]++;
-    }
-
-    unsigned long total = (unsigned long)nombre;
-    unsigned long sum = 0;
-    for (int i = 0; i < 256; ++i) {
-        sum += i * histogram[i];
-    }
-
-    unsigned long sum_b = 0;
-    unsigned long w_b = 0;
-    unsigned long w_f = 0;
-    double max_var = -1.0;
-    unsigned char threshold = 0;
-
-    for (int t = 0; t < 256; ++t) {
-        w_b += histogram[t];
-        if (w_b == 0) {
-            continue;
-        }
-        w_f = total - w_b;
-        if (w_f == 0) {
-            break;
-        }
-        sum_b += t * histogram[t];
-        double m_b = (double)sum_b / (double)w_b;
-        double m_f = (double)(sum - sum_b) / (double)w_f;
-        double var_between = (double)w_b * (double)w_f * (m_b - m_f) * (m_b - m_f);
-        if (var_between > max_var) {
-            max_var = var_between;
-            threshold = (unsigned char)t;
-        }
-    }
-    return threshold;
-}
-
-static void binariser(unsigned char *pixels, size_t nombre, unsigned char seuil) {
-    for (size_t i = 0; i < nombre; ++i) {
-        pixels[i] = pixels[i] > seuil ? 255 : 0;
-    }
-}
-
-static int charger_image_gris(const char *chemin, ImageGris *resultat) {
+static int charger_image(const char *chemin, ImageSimple *resultat) {
     if (!resultat) {
         return -1;
     }
     int largeur = 0;
     int hauteur = 0;
-    int canaux = 0;
-    unsigned char *brut = stbi_load(chemin, &largeur, &hauteur, &canaux, 0);
-    if (!brut) {
+    int comp = 0;
+    unsigned char *donnees = stbi_load(chemin, &largeur, &hauteur, &comp, 1);
+    if (!donnees) {
         return -1;
     }
-    size_t nb_pixels = (size_t)largeur * (size_t)hauteur;
-    unsigned char *gris = (unsigned char *)malloc(nb_pixels);
-    if (!gris) {
-        stbi_image_free(brut);
-        return -1;
-    }
-
-    if (canaux == 1) {
-        memcpy(gris, brut, nb_pixels);
-    } else {
-        for (size_t i = 0; i < nb_pixels; ++i) {
-            size_t indice = i * (size_t)canaux;
-            unsigned char r = brut[indice];
-            unsigned char g = canaux > 1 ? brut[indice + 1] : brut[indice];
-            unsigned char b = canaux > 2 ? brut[indice + 2] : brut[indice];
-            gris[i] = (unsigned char)(0.2126 * r + 0.7152 * g + 0.0722 * b + 0.5);
-        }
-    }
-
-    stbi_image_free(brut);
     resultat->largeur = largeur;
     resultat->hauteur = hauteur;
-    resultat->pixels = gris;
+    resultat->pixels = donnees;
     return 0;
 }
 
-static int ecrire_image_gris(const char *chemin, const unsigned char *pixels, int largeur, int hauteur) {
+static int ecrire_image(const char *chemin, const unsigned char *pixels, int largeur, int hauteur) {
     if (!pixels) {
         return -1;
     }
@@ -293,14 +228,10 @@ static int collecter_lignes(const unsigned char *pixels, int largeur, int hauteu
 }
 
 static int decouper_grille(const char *chemin_entree, const char *repertoire_sortie) {
-    ImageGris image = {0};
-    if (charger_image_gris(chemin_entree, &image) != 0) {
+    ImageSimple image = {0};
+    if (charger_image(chemin_entree, &image) != 0) {
         return -1;
     }
-    size_t nombre_pixels = (size_t)image.largeur * (size_t)image.hauteur;
-    unsigned char seuil = seuil_otsu(image.pixels, nombre_pixels);
-    binariser(image.pixels, nombre_pixels, seuil);
-
     int *lignes_horizontales = NULL;
     int *lignes_verticales = NULL;
     int nb_lignes_h = collecter_lignes(image.pixels, image.largeur, image.hauteur, true, &lignes_horizontales);
@@ -316,14 +247,14 @@ static int decouper_grille(const char *chemin_entree, const char *repertoire_sor
     if (nb_lignes_h < 2 || nb_lignes_v < 2) {
         free(lignes_horizontales);
         free(lignes_verticales);
-        liberer_image_gris(&image);
+        liberer_image(&image);
         return -1;
     }
 
     if (creer_repertoire(repertoire_grille) != 0) {
         free(lignes_horizontales);
         free(lignes_verticales);
-        liberer_image_gris(&image);
+        liberer_image(&image);
         return -1;
     }
 
@@ -350,7 +281,7 @@ static int decouper_grille(const char *chemin_entree, const char *repertoire_sor
             if (!case_pixels) {
                 free(lignes_horizontales);
                 free(lignes_verticales);
-                liberer_image_gris(&image);
+                liberer_image(&image);
                 return -1;
             }
 
@@ -364,7 +295,7 @@ static int decouper_grille(const char *chemin_entree, const char *repertoire_sor
             snprintf(nom_fichier_case, sizeof(nom_fichier_case), "x%d_y%d.png", colonne, ligne);
             char chemin_complet[1024] = {0};
             joindre_chemin(chemin_complet, sizeof(chemin_complet), repertoire_grille, nom_fichier_case);
-            if (ecrire_image_gris(chemin_complet, case_pixels, largeur_case, hauteur_case) == 0) {
+            if (ecrire_image(chemin_complet, case_pixels, largeur_case, hauteur_case) == 0) {
                 cases_enregistrees++;
             }
             free(case_pixels);
@@ -373,7 +304,7 @@ static int decouper_grille(const char *chemin_entree, const char *repertoire_sor
 
     free(lignes_horizontales);
     free(lignes_verticales);
-    liberer_image_gris(&image);
+    liberer_image(&image);
     return cases_enregistrees > 0 ? 0 : -1;
 }
 
