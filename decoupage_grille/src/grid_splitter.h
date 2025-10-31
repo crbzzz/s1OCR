@@ -25,6 +25,7 @@ int sauver_case(const char *dossier, size_t col, size_t lig, const unsigned char
 int couper_cases(const unsigned char *img, int larg,int haut,const Bande *band_h, size_t nb_h,const Bande *band_v, 
     size_t nb_v,int marge, const char *dossier,
     double *tab_larg,double *tab_haut,size_t max_cases,size_t *nb_sortie);
+int uniformiser_cases(const char *dossier);
 
 int cases_uniformes(const double *tab_larg,const double *tab_haut,
                     size_t nb);
