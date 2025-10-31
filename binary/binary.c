@@ -17,23 +17,40 @@
 #include "stb_image.h"
 #include "stb_image_write.h"
 
-static void basename_no_ext(const char* path, char* out, size_t n) {
+static void basename_no_ext(const char* path, char* out, size_t n) 
+{
     const char* p = path;
     const char* last_slash = path;
-    while (*p) { if (*p=='/'||*p=='\\') last_slash = p+1; p++; }
+    while (*p) 
+    { 
+        if (*p=='/'||*p=='\\') 
+        {
+            last_slash = p+1; p++; 
+        }
+    }
     const char* name = last_slash;
     const char* dot = name + strlen(name);
     while (dot>name && *dot!='.') dot--;
-    if (dot==name || *dot!='.') dot = name + strlen(name);
+    if (dot==name || *dot!='.') 
+    {
+        dot = name + strlen(name);
+    }
     size_t len = (size_t)(dot - name);
-    if (len >= n) len = n-1;
+    if (len >= n) 
+    {
+        len = n-1;
+    }
     memcpy(out, name, len);
     out[len] = '\0';
 }
 
-static int otsu_threshold(const unsigned int hist[256], unsigned int total) {
+static int otsu_threshold(const unsigned int hist[256], unsigned int total) 
+{
     double sum = 0.0;
-    for (int t = 0; t < 256; ++t) sum += t * (double)hist[t];
+    for (int t = 0; t < 256; ++t) 
+    {
+        sum += t * (double)hist[t];
+    }
 
     double sumB = 0.0;
     unsigned int wB = 0;
@@ -41,7 +58,8 @@ static int otsu_threshold(const unsigned int hist[256], unsigned int total) {
     double varMax = -1.0;
     int threshold = 128;
 
-    for (int t = 0; t < 256; ++t) {
+    for (int t = 0; t < 256; ++t) 
+    {
         wB += hist[t];
         if (wB == 0) continue;
         wF = total - wB;
@@ -52,7 +70,8 @@ static int otsu_threshold(const unsigned int hist[256], unsigned int total) {
         double mF = (sum - sumB) / wF;
 
         double varBetween = (double)wB * (double)wF * (mB - mF) * (mB - mF);
-        if (varBetween > varMax) {
+        if (varBetween > varMax) 
+        {
             varMax = varBetween;
             threshold = t;
         }
@@ -60,14 +79,17 @@ static int otsu_threshold(const unsigned int hist[256], unsigned int total) {
     return threshold;
 }
 
-int main(int argc, char** argv) {
-    if (argc < 2) {
+int main(int argc, char** argv)
+{ 
+    if (argc < 2) 
+    {
         return 1;
     }
 
     int use_forced_threshold = 0;
     int threshold = 128;
-    if (argc >= 3) {
+    if (argc >= 3) 
+    {
         threshold = atoi(argv[2]);
         if (threshold < 0) threshold = 0;
         if (threshold > 255) threshold = 255;
@@ -79,7 +101,8 @@ int main(int argc, char** argv) {
 
     int w, h, comp;
     unsigned char* img = stbi_load(in_path, &w, &h, &comp, 4);
-    if (!img) {
+    if (!img) 
+    {
         fprintf(stderr, "Echec : %s\n", in_path);
         return 2;
     }
@@ -87,7 +110,8 @@ int main(int argc, char** argv) {
     const int stride = w * src_c;
 
     unsigned char* gray = (unsigned char*)malloc((size_t)w * (size_t)h);
-    if (!gray) {
+    if (!gray) 
+    {
         stbi_image_free(img);
         fprintf(stderr, "pas assez de mémoire\n");
         return 3;
@@ -95,9 +119,11 @@ int main(int argc, char** argv) {
 
     unsigned int hist[256] = {0};
 
-    for (int y = 0; y < h; y++) {
+    for (int y = 0; y < h; y++) 
+    {
         const unsigned char* row = img + (size_t)y * (size_t)stride;
-        for (int x = 0; x < w; x++) {
+        for (int x = 0; x < w; x++) 
+        {
             const unsigned char* px = row + (size_t)x * (size_t)src_c;
             unsigned int r = px[0], g = px[1], b = px[2], a = px[3];
 
@@ -113,18 +139,21 @@ int main(int argc, char** argv) {
         }
     }
 
-    if (!use_forced_threshold) {
+    if (!use_forced_threshold) 
+    {
         threshold = otsu_threshold(hist, (unsigned int)((unsigned long long)w * (unsigned long long)h));
     }
 
     unsigned char* bw = (unsigned char*)malloc((size_t)w * (size_t)h);
-    if (!bw) {
+    if (!bw) 
+    {
         free(gray);
         stbi_image_free(img);
         fprintf(stderr, "X mémoire\n");
         return 3;
     }
-    for (int i = 0, n = w * h; i < n; ++i) {
+    for (int i = 0, n = w * h; i < n; ++i) 
+    {
         bw[i] = (gray[i] >= threshold) ? 255 : 0;
     }
 
@@ -134,7 +163,8 @@ int main(int argc, char** argv) {
     char out_path[512];
     snprintf(out_path, sizeof(out_path), "out/%s_bw.png", base);
 
-    if (!stbi_write_png(out_path, w, h, 1, bw, w)) {
+    if (!stbi_write_png(out_path, w, h, 1, bw, w)) 
+    {
         fprintf(stderr, "Echec ecriture: %s\n", out_path);
         free(bw);
         free(gray);
