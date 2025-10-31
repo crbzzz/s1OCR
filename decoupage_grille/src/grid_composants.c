@@ -756,19 +756,10 @@ static int grille_depuis_blocs(const unsigned char *pix,
         dernier = x;
     }
 
-    int extrait = couper_cases(pix,
-                               larg,
-                               haut,
-                               band_h,
-                               nb_lignes + 1,
-                               band_v,
-                               col_final + 1,
-                               0,
-                               dossier,
-                               NULL,
-                               NULL,
-                               0,
-                               NULL);
+    int extrait = couper_cases(pix,larg, haut,
+                               band_h,nb_lignes + 1,
+                               band_v,col_final + 1,
+                               0,dossier, NULL,NULL,0, NULL);
 
     free(band_v);
     free(band_h);
