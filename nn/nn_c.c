@@ -32,7 +32,8 @@ double dsigmoid_from_output(double a)
     return a * (1.0 - a); 
 }
 
-void init_params(Params* p) {
+void init_params(Params* p) 
+{
     p->W1[0][0] = rand_uniform(); p->W1[0][1] = rand_uniform();
     p->W1[1][0] = rand_uniform(); p->W1[1][1] = rand_uniform();
     p->b1[0] = 0.0; p->b1[1] = 0.0;
@@ -40,7 +41,8 @@ void init_params(Params* p) {
     p->b2[0] = 0.0;
 }
 
-void forward(const double x[2], const Params* p, double a1[2], double* y_hat) {
+void forward(const double x[2], const Params* p, double a1[2], double* y_hat) 
+{
     double z1_0 = p->W1[0][0]*x[0] + p->W1[0][1]*x[1] + p->b1[0];
     double z1_1 = p->W1[1][0]*x[0] + p->W1[1][1]*x[1] + p->b1[1];
     a1[0] = sigmoid(z1_0);
@@ -49,7 +51,8 @@ void forward(const double x[2], const Params* p, double a1[2], double* y_hat) {
     *y_hat = sigmoid(z2);
 }
 
-void bce_loss(double y_hat, double y, double* loss, double* dL_dyhat) {
+void bce_loss(double y_hat, double y, double* loss, double* dL_dyhat) 
+{
     double eps = 1e-12;
     double p = y_hat;
     if (p < eps) p = eps;
@@ -58,7 +61,8 @@ void bce_loss(double y_hat, double y, double* loss, double* dL_dyhat) {
     *dL_dyhat = y_hat - y;
 }
 
-void backward(const double x[2], const double a1[2], double y_hat, const Params* p, double dL_dyhat, Grads* g) {
+void backward(const double x[2], const double a1[2], double y_hat, const Params* p, double dL_dyhat, Grads* g) 
+{
     double dL_dz2 = dL_dyhat;
     g->dW2[0][0] = dL_dz2 * a1[0];
     g->dW2[0][1] = dL_dz2 * a1[1];
@@ -75,7 +79,8 @@ void backward(const double x[2], const double a1[2], double y_hat, const Params*
     g->db1[1] = dL_dz1_1;
 }
 
-void apply_grads(Params* p, const Grads* g, double lr) {
+void apply_grads(Params* p, const Grads* g, double lr) 
+{
     p->W2[0][0] -= lr * g->dW2[0][0];
     p->W2[0][1] -= lr * g->dW2[0][1];
     p->b2[0]    -= lr * g->db2[0];
@@ -87,27 +92,33 @@ void apply_grads(Params* p, const Grads* g, double lr) {
     p->b1[1]    -= lr * g->db1[1];
 }
 
-double predict_value(const double x[2], const Params* p) {
+double predict_value(const double x[2], const Params* p) 
+{
     double a1[2], y_hat;
     forward(x, p, a1, &y_hat);
     return y_hat;
 }
 
-void shuffle4(int idx[4]) {
-    for (int i = 3; i > 0; i--) {
+void shuffle4(int idx[4]) 
+{
+    for (int i = 3; i > 0; i--) 
+    {
         int j = rand() % (i + 1);
         int t = idx[i]; idx[i] = idx[j]; idx[j] = t;
     }
 }
 
-void train_xor(int epochs, double lr, Params* p) {
+void train_xor(int epochs, double lr, Params* p) 
+{
     double X[4][2] = { {0,0}, {0,1}, {1,0}, {1,1} };
     double Y[4] = { 0, 1, 1, 0 };
     int order[4] = {0,1,2,3};
     Grads g;
-    for (int e = 0; e < epochs; e++) {
+    for (int e = 0; e < epochs; e++) 
+    {
         shuffle4(order);
-        for (int k = 0; k < 4; k++) {
+        for (int k = 0; k < 4; k++) 
+        {
             int i = order[k];
             double a1[2], y_hat, loss, dL_dyhat;
             forward(X[i], p, a1, &y_hat);
