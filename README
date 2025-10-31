@@ -47,7 +47,7 @@ Rendu binaire :
 
 Rendu Decoupage_grille :
     make 
-    ./grid_splitter data/clean_grid/<image> data/letters
+    ./grid_splitter data/clean_grid  data/letters
 
 
 
