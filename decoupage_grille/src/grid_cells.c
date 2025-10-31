@@ -54,17 +54,12 @@ int sauver_case(const char *dossier, size_t col, size_t lig, const unsigned char
 }
 
 int couper_cases(const unsigned char *img,
-                 int larg,
-                 int haut,
-                 const Bande *band_h,
-                 size_t nb_h,
+                 int larg,int haut,
+                 const Bande *band_h, size_t nb_h,
                  const Bande *band_v,
-                 size_t nb_v,
-                 int marge,
-                 const char *dossier,
-                 double *tab_larg,
-                 double *tab_haut,
-                 size_t max_cases,
+                 size_t nb_v, int marge,
+                 const char *dossier,double *tab_larg,
+                 double *tab_haut, size_t max_cases,
                  size_t *nb_sortie)
 {
     if (!band_h || !band_v || nb_h < 2 || nb_v < 2) {
