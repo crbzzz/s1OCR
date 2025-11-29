@@ -2,28 +2,39 @@ CC := gcc
 CFLAGS := -Wall -Wextra -std=c11 -I./src -I../binary
 LDFLAGS := -lm
 
-BINS := grid_splitter mots_extraction
-BIN := grid_splitter
-MOTS_BIN := mots_extraction
-MOTS_SRC := src2/mots_extraction.c
+# --- EXECUTABLES ---
+GRID_BIN := grid_splitter
+WORDS_BIN := mots_extraction
+FIND_BIN := find_words
+
+# --- SOURCES ---
 SRC_DIR := src
-SRCS := $(wildcard $(SRC_DIR)/*.c)
-OBJS := $(SRCS:.c=.o)
+SRC2_DIR := src2
 
-.PHONY: all mots clean
+GRID_SRCS := $(wildcard $(SRC_DIR)/*.c)
+GRID_OBJS := $(GRID_SRCS:.c=.o)
 
-all: $(BIN)
+WORDS_SRC := $(SRC2_DIR)/mots_extraction.c
+FIND_SRC := $(SRC2_DIR)/find_words.c
 
-$(BIN): $(OBJS)
-	$(CC) $(OBJS) -o $@ $(LDFLAGS)
+.PHONY: all clean
+
+all: $(GRID_BIN) $(WORDS_BIN) $(FIND_BIN)
+
+# ---- GRID SPLITTER ----
+$(GRID_BIN): $(GRID_OBJS)
+	$(CC) $(GRID_OBJS) -o $@ $(LDFLAGS)
 
 $(SRC_DIR)/%.o: $(SRC_DIR)/%.c $(SRC_DIR)/grid_splitter.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-mots: $(MOTS_BIN)
+# ---- Mots Extraction ----
+$(WORDS_BIN): $(WORDS_SRC)
+	$(CC) $(CFLAGS) -I$(SRC2_DIR) -o $@ $< $(LDFLAGS)
 
-$(MOTS_BIN): $(MOTS_SRC)
-	$(CC) $(CFLAGS) -I./src2 -o $@ $< $(LDFLAGS)
+# ---- Find Words ----
+$(FIND_BIN): $(FIND_SRC)
+	$(CC) $(CFLAGS) -I$(SRC2_DIR) -o $@ $< $(LDFLAGS)
 
 clean:
-	rm -f $(BINS) $(OBJS)
+	rm -f $(GRID_BIN) $(WORDS_BIN) $(FIND_BIN) $(GRID_OBJS)
