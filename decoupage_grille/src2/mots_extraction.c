@@ -136,7 +136,6 @@ int extraire_mots(const char *img_path, const char *out_dir) {
         return 0;
     }
 
-    /* Ignore grid fragments and other outliers using robust statistics. */
     int *heights = malloc(nb * sizeof(int));
     int *widths  = malloc(nb * sizeof(int));
     int *areas   = malloc(nb * sizeof(int));
@@ -200,7 +199,6 @@ int extraire_mots(const char *img_path, const char *out_dir) {
         return 0;
     }
 
-    /* Recompute medians on filtered set for grouping. */
     int *h2 = malloc(nb * sizeof(int));
     int *w2 = malloc(nb * sizeof(int));
     for (int i=0;i<nb;i++){

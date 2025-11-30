@@ -45,7 +45,6 @@ static double median_int(const int *v, int n)
 static void ensure_dir(const char *p)
 {
     if (!p || !p[0]) return;
-    /* mkdir is idempotent on both POSIX and Windows for existing folder */
     MKDIR(p);
 }
 
@@ -115,7 +114,6 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    /* Collect statistics to ignore the grid and other outliers. */
     int *heights = malloc(nb * sizeof(int));
     int *widths  = malloc(nb * sizeof(int));
     int *areas   = malloc(nb * sizeof(int));
@@ -161,7 +159,7 @@ int main(int argc, char **argv)
             int ih = iy1 - iy0 + 1;
             if (iw > 0 && ih > 0) {
                 int inter = iw * ih;
-                if (inter > a * 0.25) continue; /* heavily overlapping the grid */
+                if (inter > a * 0.25) continue;
             }
         }
 
