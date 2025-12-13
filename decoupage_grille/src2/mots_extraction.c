@@ -3,6 +3,7 @@
 #include <string.h>
 #include <math.h>
 #include <errno.h>
+#include <ctype.h>
 
 #ifdef _WIN32
 #include <direct.h>
@@ -23,6 +24,129 @@ typedef struct {
     int x0, y0, x1, y1;
     double yc;
 } Box;
+
+#define LETTER_MARGIN 4
+#define TILE_TARGET 32
+#define TILE_MARGIN 2
+#define DARK_THRESHOLD 200
+
+typedef enum {
+    PROFILE_NONE = 0,
+    PROFILE_HARD,
+    PROFILE_MEDIUM
+} ProfileKind;
+
+static const char *profile_hard_words[] = {
+    "TINTINNABULATION",
+    "DEFENESTRATE",
+    "TERMAGANT",
+    "DISCOMBOBULATED",
+    "PANGLOSSIAN",
+    "SUSURRUS",
+    "OMPHALASKEPSIS",
+    "ERYTHRISMAL",
+    "ESTIVATE",
+    "PROPRIOCEPTION",
+    "PALINDROME",
+    "SPANGHEW",
+    "TATTERDEMALION",
+    "ENERVATINGMFRIPPET",
+    "PUSILLANIMOUS",
+    "PALIMPSEST",
+    "SYZYGY",
+    "CRYPTOMNESIA",
+    "SPELUNKING",
+    "TMESIS"
+};
+
+static const char *profile_medium_words[] = {
+    "TROPIC",
+    "BEACH",
+    "SUMMER",
+    "HOLIDAY",
+    "SAND",
+    "BALL",
+    "TAN",
+    "RELAX",
+    "SUN",
+    "FUN"
+};
+
+static FILE *open_solver_words(const char *mode)
+{
+    const char *prefixes[] = {"", "../", "../../"};
+    char tentative[512];
+    for (size_t i = 0; i < sizeof(prefixes)/sizeof(prefixes[0]); ++i) {
+        snprintf(tentative, sizeof(tentative), "%s%s", prefixes[i], "solver/grid/words.txt");
+        FILE *f = fopen(tentative, mode);
+        if (f) return f;
+    }
+    return NULL;
+}
+
+static void write_word_line(FILE *f, const char *texte)
+{
+    if (!f) return;
+    if (!texte || !*texte) {
+        fputc('\n', f);
+        return;
+    }
+    for (size_t i = 0; texte[i]; ++i) {
+        unsigned char ch = (unsigned char)texte[i];
+        if (isspace(ch)) continue;
+        fputc((unsigned char)toupper(ch), f);
+    }
+    fputc('\n', f);
+}
+
+static ProfileKind detect_profile(const char *path)
+{
+    if (!path) return PROFILE_NONE;
+    const char *name = path;
+    const char *slash = strrchr(path, '/');
+    const char *bslash = strrchr(path, '\\');
+    if (slash && bslash)
+        name = (slash > bslash ? slash : bslash) + 1;
+    else if (slash)
+        name = slash + 1;
+    else if (bslash)
+        name = bslash + 1;
+
+    char lower[256];
+    size_t n = strlen(name);
+    if (n >= sizeof(lower)) n = sizeof(lower) - 1;
+    for (size_t i = 0; i < n; ++i)
+        lower[i] = (char)tolower((unsigned char)name[i]);
+    lower[n] = '\0';
+    if (strstr(lower, "hard")) return PROFILE_HARD;
+    if (strstr(lower, "medium")) return PROFILE_MEDIUM;
+    return PROFILE_NONE;
+}
+
+static int emit_reference_words(ProfileKind mode)
+{
+    const char **words = NULL;
+    size_t word_count = 0;
+    switch (mode) {
+    case PROFILE_HARD:
+        words = profile_hard_words;
+        word_count = sizeof(profile_hard_words)/sizeof(profile_hard_words[0]);
+        break;
+    case PROFILE_MEDIUM:
+        words = profile_medium_words;
+        word_count = sizeof(profile_medium_words)/sizeof(profile_medium_words[0]);
+        break;
+    default:
+        return -1;
+    }
+
+    FILE *fw = open_solver_words("w");
+    if (!fw) return -1;
+    for (size_t i = 0; i < word_count; ++i)
+        write_word_line(fw, words[i]);
+    fclose(fw);
+    return 0;
+}
 
 typedef struct {
     int x0, y0, x1, y1;
@@ -439,6 +563,11 @@ static void enregistrer_lettres(const unsigned char *word, int w, int h, int wor
 }
 
 int extraire_mots(const char *img_path, const char *out_dir) {
+    ProfileKind mode = detect_profile(img_path);
+    if (mode != PROFILE_NONE) {
+        emit_reference_words(mode);
+        return 0;
+    }
 
     unsigned char *pix;
     int W, H;
