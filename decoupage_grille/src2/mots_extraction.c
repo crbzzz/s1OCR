@@ -24,6 +24,18 @@ typedef struct {
     double yc;
 } Box;
 
+typedef struct {
+    int x0, y0, x1, y1;
+} Rect;
+
+static int rect_cmp(const void *a, const void *b)
+{
+    const Rect *ra = (const Rect *)a;
+    const Rect *rb = (const Rect *)b;
+    if (ra->x0 != rb->x0) return (ra->x0 > rb->x0) - (ra->x0 < rb->x0);
+    return (ra->y0 > rb->y0) - (ra->y0 < rb->y0);
+}
+
 static int cmp_int(const void *a, const void *b) {
     int aa = *(const int *)a;
     int bb = *(const int *)b;
@@ -58,6 +70,292 @@ static int est_noir(unsigned char v) {
 static void assurer_repertoire(const char *p) {
     if (!p || !p[0]) return;
     MKDIR(p);
+}
+
+static int detect_letter_rects(const unsigned char *word, int w, int h, Rect **letters_out)
+{
+    *letters_out = NULL;
+    if (!word || w <= 0 || h <= 0) return 0;
+
+    int size = w * h;
+    unsigned char *vis = calloc(size, 1);
+    int *stack = malloc(sizeof(int) * size);
+    if (!vis || !stack) {
+        free(vis);
+        free(stack);
+        return 0;
+    }
+
+    typedef struct {
+        Rect box;
+        int pixels;
+        double xc, yc;
+        int is_letter;
+    } Component;
+
+    int cap = 32;
+    Component *comp = malloc(sizeof(Component) * cap);
+    if (!comp) {
+        free(vis);
+        free(stack);
+        return 0;
+    }
+
+    int comp_count = 0;
+    static const int neigh[8][2] = {
+        {1,0},{-1,0},{0,1},{0,-1},
+        {1,1},{1,-1},{-1,1},{-1,-1}
+    };
+
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            int idx = y * w + x;
+            if (vis[idx] || !est_noir(word[idx])) continue;
+
+            int sp = 0;
+            stack[sp++] = idx;
+            vis[idx] = 1;
+
+            int x0 = x, x1 = x, y0 = y, y1 = y;
+            int pixels = 0;
+
+            while (sp) {
+                int cur = stack[--sp];
+                int cy = cur / w;
+                int cx = cur % w;
+
+                pixels++;
+                if (cx < x0) x0 = cx;
+                if (cx > x1) x1 = cx;
+                if (cy < y0) y0 = cy;
+                if (cy > y1) y1 = cy;
+
+                for (int k = 0; k < 8; k++) {
+                    int nx = cx + neigh[k][0];
+                    int ny = cy + neigh[k][1];
+                    if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                    int nidx = ny * w + nx;
+                    if (!vis[nidx] && est_noir(word[nidx])) {
+                        vis[nidx] = 1;
+                        stack[sp++] = nidx;
+                    }
+                }
+            }
+
+            if (pixels < 2) continue;
+
+            if (comp_count >= cap) {
+                cap *= 2;
+                Component *tmp = realloc(comp, sizeof(Component) * cap);
+                if (!tmp) {
+                    free(comp);
+                    free(vis);
+                    free(stack);
+                    return 0;
+                }
+                comp = tmp;
+            }
+
+            comp[comp_count].box.x0 = x0;
+            comp[comp_count].box.y0 = y0;
+            comp[comp_count].box.x1 = x1;
+            comp[comp_count].box.y1 = y1;
+            comp[comp_count].pixels = pixels;
+            comp[comp_count].xc = (x0 + x1) / 2.0;
+            comp[comp_count].yc = (y0 + y1) / 2.0;
+            comp[comp_count].is_letter = 0;
+            comp_count++;
+        }
+    }
+
+    if (comp_count == 0) {
+        Rect *fallback = malloc(sizeof(Rect));
+        if (!fallback) {
+            free(comp);
+            free(vis);
+            free(stack);
+            return 0;
+        }
+        fallback[0] = (Rect){0, 0, w > 0 ? w - 1 : 0, h > 0 ? h - 1 : 0};
+        *letters_out = fallback;
+        free(comp);
+        free(vis);
+        free(stack);
+        return 1;
+    }
+
+    int *heights = malloc(sizeof(int) * comp_count);
+    int *areas = malloc(sizeof(int) * comp_count);
+    if (!heights || !areas) {
+        free(heights);
+        free(areas);
+        free(comp);
+        free(vis);
+        free(stack);
+        return 0;
+    }
+
+    for (int i = 0; i < comp_count; i++) {
+        heights[i] = comp[i].box.y1 - comp[i].box.y0 + 1;
+        areas[i] = comp[i].pixels;
+    }
+
+    double med_h = median_int(heights, comp_count);
+    double med_area = median_int(areas, comp_count);
+    if (med_h < 1.0) med_h = h;
+    if (med_area < 1.0) med_area = w * h;
+
+    double min_letter_h = med_h * 0.45;
+    if (min_letter_h < 3.0) min_letter_h = 3.0;
+    double min_letter_area = med_area * 0.25;
+    if (min_letter_area < 10.0) min_letter_area = 10.0;
+    double keep_area = med_area * 0.08;
+    if (keep_area < 5.0) keep_area = 5.0;
+
+    int letter_count = 0;
+    for (int i = 0; i < comp_count; i++) {
+        if (heights[i] >= (int)min_letter_h || areas[i] >= (int)min_letter_area) {
+            comp[i].is_letter = 1;
+            letter_count++;
+        }
+    }
+
+    if (letter_count == 0) {
+        int max_idx = 0;
+        for (int i = 1; i < comp_count; i++) {
+            if (areas[i] > areas[max_idx]) max_idx = i;
+        }
+        comp[max_idx].is_letter = 1;
+        letter_count = 1;
+    }
+
+    for (int i = 0; i < comp_count; i++) {
+        if (comp[i].is_letter) continue;
+        if (comp[i].pixels < (int)keep_area) continue;
+
+        int best = -1;
+        double best_score = 1e9;
+
+        for (int j = 0; j < comp_count; j++) {
+            if (!comp[j].is_letter) continue;
+
+            double dx = fabs(comp[i].xc - comp[j].xc);
+            double dy = 0.0;
+            if (comp[i].yc < comp[j].yc)
+                dy = comp[j].box.y0 - comp[i].box.y1;
+            else
+                dy = comp[i].box.y0 - comp[j].box.y1;
+            if (dy < 0) dy = 0;
+
+            double score = dx + dy * 1.5;
+            if (score < best_score) {
+                best_score = score;
+                best = j;
+            }
+        }
+
+        if (best >= 0 && best_score < (double)w * 0.8) {
+            Rect *dst = &comp[best].box;
+            Rect *src = &comp[i].box;
+            if (src->x0 < dst->x0) dst->x0 = src->x0;
+            if (src->x1 > dst->x1) dst->x1 = src->x1;
+            if (src->y0 < dst->y0) dst->y0 = src->y0;
+            if (src->y1 > dst->y1) dst->y1 = src->y1;
+            continue;
+        }
+
+        if (comp[i].pixels >= (int)(min_letter_area * 0.4)) {
+            comp[i].is_letter = 1;
+            letter_count++;
+        }
+    }
+
+    if (letter_count == 0) {
+        free(heights);
+        free(areas);
+        free(comp);
+        free(vis);
+        free(stack);
+        return 0;
+    }
+
+    Rect *letters = malloc(sizeof(Rect) * letter_count);
+    if (!letters) {
+        free(heights);
+        free(areas);
+        free(comp);
+        free(vis);
+        free(stack);
+        return 0;
+    }
+
+    int idx_out = 0;
+    for (int i = 0; i < comp_count; i++) {
+        if (!comp[i].is_letter) continue;
+        letters[idx_out++] = comp[i].box;
+    }
+
+    qsort(letters, letter_count, sizeof(Rect), rect_cmp);
+
+    free(heights);
+    free(areas);
+    free(comp);
+    free(vis);
+    free(stack);
+
+    *letters_out = letters;
+    return letter_count;
+}
+
+static void enregistrer_lettres(const unsigned char *word, int w, int h, int word_index, const char *out_dir)
+{
+    if (!word || w <= 0 || h <= 0) return;
+
+    Rect *letters = NULL;
+    int letter_count = detect_letter_rects(word, w, h, &letters);
+    if (letter_count <= 0) {
+        letters = malloc(sizeof(Rect));
+        if (!letters) return;
+        letters[0].x0 = 0;
+        letters[0].y0 = 0;
+        letters[0].x1 = w - 1;
+        letters[0].y1 = h - 1;
+        letter_count = 1;
+    }
+
+    char word_dir[512];
+    snprintf(word_dir, sizeof(word_dir), "%s/%d", out_dir, word_index + 1);
+    assurer_repertoire(word_dir);
+
+    for (int i = 0; i < letter_count; i++) {
+        int lx0 = letters[i].x0;
+        int ly0 = letters[i].y0;
+        int lx1 = letters[i].x1;
+        int ly1 = letters[i].y1;
+
+        if (lx0 < 0) lx0 = 0;
+        if (ly0 < 0) ly0 = 0;
+        if (lx1 >= w) lx1 = w - 1;
+        if (ly1 >= h) ly1 = h - 1;
+
+        int lw = lx1 - lx0 + 1;
+        int lh = ly1 - ly0 + 1;
+        if (lw <= 0 || lh <= 0) continue;
+
+        unsigned char *glyph = malloc(lw * lh);
+        if (!glyph) continue;
+
+        for (int yy = 0; yy < lh; yy++) {
+            memcpy(glyph + yy * lw, word + (ly0 + yy) * w + lx0, lw);
+        }
+
+        char fn[512];
+        snprintf(fn, sizeof(fn), "%s/%d.png", word_dir, i + 1);
+        sauver(fn, glyph, lw, lh);
+        free(glyph);
+    }
+
+    free(letters);
 }
 
 int extraire_mots(const char *img_path, const char *out_dir) {
@@ -279,10 +577,9 @@ int extraire_mots(const char *img_path, const char *out_dir) {
             for (int yy = 0; yy < h; yy++)
                 memcpy(cut + yy*w, pix + (y0+yy)*W + x0, w);
 
-            char fn[256];
-            snprintf(fn, sizeof(fn), "%s/word_%d.png", out_dir, word_id++);
+            enregistrer_lettres(cut, w, h, word_id, out_dir);
+            word_id++;
 
-            sauver(fn, cut, w, h);
             free(cut);
 
             i = j;
