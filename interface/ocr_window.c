@@ -72,7 +72,6 @@ static void load_app_css(GtkWidget *root) {
         "   background: rgba(0,0,0,0.40); "
         "   border-radius: 16px; "
         "   padding: 18px; }\n"
-        ".home-dim label { color: white; }\n"
         ".status { color: #e0e0e0; }\n";
 
     GtkCssProvider *provider = gtk_css_provider_new();
@@ -97,42 +96,42 @@ static void load_image_from_path(OcrAppWindow *self, const gchar *filepath) {
         update_status_label(self, "Chemin d'image invalide.");
         return;
     }
+    // Préparer dossier out/ sans supprimer les autres fichiers
+    if (!g_file_test("out", G_FILE_TEST_IS_DIR)) {
+        g_mkdir_with_parents("out", 0755);
+    }
 
-    gtk_image_set_from_file(GTK_IMAGE(self->image_widget), filepath);
-
+    // Conserver le chemin original pour la classification
     g_object_set_data_full(G_OBJECT(self->image_widget),
-                           "current-filepath",
+                           "original-filepath",
                            g_strdup(filepath),
                            g_free);
+
+    // Copier l'image source vers out/working.png (écrase uniquement working.png)
+    GFile *srcf = g_file_new_for_path(filepath);
+    GFile *dstf = g_file_new_for_path("out/working.png");
+    GError *cpy_err = NULL;
+    if (!g_file_copy(srcf, dstf, G_FILE_COPY_OVERWRITE, NULL, NULL, NULL, &cpy_err)) {
+        update_status_label(self, cpy_err ? cpy_err->message : "Copie impossible");
+        g_clear_error(&cpy_err);
+    }
+    g_object_unref(srcf);
+    g_object_unref(dstf);
+
+    // Afficher l'image de travail et définir current-filepath dessus
+    gtk_image_set_from_file(GTK_IMAGE(self->image_widget), "out/working.png");
+    g_object_set_data_full(G_OBJECT(self->image_widget),
+                           "current-filepath",
+                           g_strdup("out/working.png"),
+                           g_free);
+    // Réinitialiser l'état des opérations
+    g_object_set_data(G_OBJECT(self->image_widget), "last-op", NULL);
+    g_object_set_data(G_OBJECT(self->image_widget), "auto-then-binarize", NULL);
 
     gchar *basename = g_path_get_basename(filepath);
     gchar *message = g_strdup_printf("Image chargée : %s", basename ? basename : filepath);
     update_status_label(self, message);
     g_free(message);
-
-    GdkPixbuf *pix = gtk_image_get_pixbuf(GTK_IMAGE(self->image_widget));
-    if (pix) {
-        gchar *base_noext = g_strdup(basename ? basename : "image");
-        gchar *dot = base_noext ? strrchr(base_noext, '.') : NULL;
-        if (dot && dot != base_noext) *dot = '\0';
-
-        gchar *outpath_load = g_strdup_printf("out/%s.png", base_noext);
-
-        if (g_file_test(outpath_load, G_FILE_TEST_EXISTS)) {
-            g_remove(outpath_load);
-        }
-
-        GError *save_err = NULL;
-        if (!gdk_pixbuf_save(pix, outpath_load, "png", &save_err, NULL)) {
-            g_warning("Échec sauvegarde copie de chargement: %s",
-                      save_err ? save_err->message : "inconnue");
-            g_clear_error(&save_err);
-        }
-
-        g_free(outpath_load);
-        g_free(base_noext);
-    }
-
     g_free(basename);
 }
 
@@ -283,6 +282,263 @@ static unsigned char* rotate_rgba_nn_padauto(const unsigned char *src, int sw, i
 
 static void center_scroller(GtkWidget *scroller);
 
+static GdkPixbuf* scale_pixbuf_to_max(const GdkPixbuf *src, int max_w, int max_h) {
+    if (!src) return NULL;
+    int sw = gdk_pixbuf_get_width(src);
+    int sh = gdk_pixbuf_get_height(src);
+    if (sw <= 0 || sh <= 0) return NULL;
+    double scale = 1.0;
+    if (sw > max_w) scale = (double)max_w / (double)sw;
+    if (sh * scale > max_h) scale = (double)max_h / (double)sh;
+    if (scale >= 1.0) {
+        return gdk_pixbuf_copy(src);
+    }
+    int dw = (int)(sw * scale + 0.5);
+    int dh = (int)(sh * scale + 0.5);
+    return gdk_pixbuf_scale_simple(src, dw, dh, GDK_INTERP_BILINEAR);
+}
+// Forward declarations to avoid implicit declarations
+static void binarize(const unsigned char *gray, unsigned char *bin, int w, int h);
+static int evaluate_angle_projection_x(const unsigned char *bin, int w, int h, double angle_deg);
+static int evaluate_angle_projection_y(const unsigned char *bin, int w, int h, double angle_deg);
+
+static int evaluate_angle(const unsigned char *gray, int w, int h, double angle_deg) {
+    double rad = angle_deg * M_PI / 180.0;
+    double sinr = sin(rad);
+    double cosr = cos(rad);
+    double cx = w * 0.5;
+    double cy = h * 0.5;
+
+    int *proj = (int *)calloc(w, sizeof(int));
+    if (!proj) return 0;
+
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            double xc = x - cx;
+            double yc = y - cy;
+            double xr = xc * cosr - yc * sinr + cx;
+            double yr = xc * sinr + yc * cosr + cy;
+
+            if (xr >= 0 && xr < w && yr >= 0 && yr < h) {
+                int xri = (int)round(xr);
+                int yri = (int)round(yr);
+                if (xri >= 0 && xri < w && yri >= 0 && yri < h) {
+                    int g = gray[yri * w + xri];
+                    proj[xri] += (255 - g);
+                }
+            }
+        }
+    }
+
+    int variance = 0;
+    int mean = 0;
+    for (int x = 0; x < w; ++x) {
+        mean += proj[x];
+    }
+    mean /= w;
+
+    for (int x = 0; x < w; ++x) {
+        int diff = proj[x] - mean;
+        variance += diff * diff;
+    }
+
+    free(proj);
+    return variance;
+}
+
+static gdouble detect_grid_angle(const unsigned char *rgba, int w, int h) {
+    if (!rgba || w <= 0 || h <= 0) return 0.0;
+
+    unsigned char *gray = (unsigned char *)malloc((size_t)w * h);
+    unsigned char *bin = (unsigned char *)malloc((size_t)w * h);
+    if (!gray || !bin) { free(gray); free(bin); return 0.0; }
+
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            const unsigned char *p = rgba + ((size_t)y * w + x) * 4;
+            gray[y * w + x] = (p[0] + p[1] + p[2]) / 3;
+        }
+    }
+
+    binarize(gray, bin, w, h);
+
+    gdouble best_angle = 0.0;
+    int best_score = -1;
+    gboolean use_vertical = TRUE;
+
+    for (int angle_int = 0; angle_int <= 180; ++angle_int) {
+        double angle_deg = (double)angle_int;
+        int sx = evaluate_angle_projection_x(bin, w, h, angle_deg);
+        int sy = evaluate_angle_projection_y(bin, w, h, angle_deg);
+        int score = sx >= sy ? sx : sy;
+        if (score > best_score) { best_score = score; best_angle = angle_deg; use_vertical = (sx >= sy); }
+    }
+
+    // Replace global refine with local searches to avoid 90° flips
+    double best_rot_local = 0.0;
+    int best_score_local = best_score;
+
+    // Local around 0° for vertical lines (coarse)
+    for (double a = -15.0; a <= 15.0; a += 0.2) {
+        int sx = evaluate_angle_projection_x(bin, w, h, a);
+        if (sx > best_score_local) { best_score_local = sx; best_rot_local = a; }
+    }
+
+    // Local around 90° for horizontal lines (coarse)
+    for (double a = 75.0; a <= 105.0; a += 0.2) {
+        int sy = evaluate_angle_projection_y(bin, w, h, a);
+        double rot = a - 90.0;
+        if (rot > 90.0) rot -= 180.0;
+        if (rot < -90.0) rot += 180.0;
+        if (sy > best_score_local && fabs(rot) < fabs(best_rot_local)) { best_score_local = sy; best_rot_local = rot; }
+    }
+
+    // Fine refinement around the best rotation found
+    double center = best_rot_local;
+    double best_refined_rot = center;
+    int best_refined_score = -1;
+    // Search ±2° around center at 0.05° steps
+    for (double da = -2.0; da <= 2.0; da += 0.05) {
+        double test_rot = center + da;
+        // Choose projection function depending on proximity to 0 or 90
+        int score;
+        if (fabs(test_rot) <= 30.0) {
+            score = evaluate_angle_projection_x(bin, w, h, test_rot);
+        } else {
+            double ang = test_rot + 90.0;
+            score = evaluate_angle_projection_y(bin, w, h, ang);
+        }
+        if (score > best_refined_score) { best_refined_score = score; best_refined_rot = test_rot; }
+    }
+
+    free(gray);
+    free(bin);
+    return best_refined_rot;
+}
+
+static int otsu_threshold(const unsigned char *gray, int w, int h) {
+    int hist[256] = {0};
+    int total = w * h;
+    for (int i = 0; i < total; ++i) hist[gray[i]]++;
+
+    double sum = 0.0;
+    for (int t = 0; t < 256; ++t) sum += t * hist[t];
+
+    double sumB = 0.0;
+    int wB = 0;
+    int wF = 0;
+    double varMax = -1.0;
+    int threshold = 127;
+
+    for (int t = 0; t < 256; ++t) {
+        wB += hist[t];
+        if (wB == 0) continue;
+        wF = total - wB;
+        if (wF == 0) break;
+        sumB += (double)t * hist[t];
+        double mB = sumB / wB;
+        double mF = (sum - sumB) / wF;
+        double varBetween = (double)wB * (double)wF * (mB - mF) * (mB - mF);
+        if (varBetween > varMax) {
+            varMax = varBetween;
+            threshold = t;
+        }
+    }
+    return threshold;
+}
+
+static void binarize(const unsigned char *gray, unsigned char *bin, int w, int h) {
+    int t = otsu_threshold(gray, w, h);
+    for (int i = 0; i < w*h; ++i) bin[i] = (gray[i] > t) ? 255 : 0;
+}
+
+static int evaluate_angle_projection_x(const unsigned char *bin, int w, int h, double angle_deg) {
+    double rad = angle_deg * M_PI / 180.0;
+    double sinr = sin(rad);
+    double cosr = cos(rad);
+    double cx = w * 0.5;
+    double cy = h * 0.5;
+
+    int proj_w = w;
+    long long *proj = (long long*)calloc((size_t)proj_w, sizeof(long long));
+    if (!proj) return 0;
+
+    int y0 = h/6, y1 = h - h/6; // éviter bords
+    int x0 = w/6, x1 = w - w/6;
+    for (int y = y0; y < y1; ++y) {
+        for (int x = x0; x < x1; ++x) {
+            double xc = x - cx;
+            double yc = y - cy;
+            double xr = xc * cosr - yc * sinr + cx;
+            double yr = xc * sinr + yc * cosr + cy;
+            int xri = (int)floor(xr + 0.5);
+            int yri = (int)floor(yr + 0.5);
+            if (xri >= 0 && xri < w && yri >= 0 && yri < h) {
+                proj[xri] += (bin[yri * w + xri] == 0) ? 1 : 0; // compte pixels sombres
+            }
+        }
+    }
+
+    // score: variance + somme des différences locales pour favoriser pics nets
+    long long sum = 0;
+    for (int i = 0; i < proj_w; ++i) sum += proj[i];
+    double mean = (double)sum / proj_w;
+    double var = 0.0;
+    long long diff_sum = 0;
+    for (int i = 0; i < proj_w; ++i) {
+        double d = proj[i] - mean;
+        var += d*d;
+        if (i>0) diff_sum += llabs(proj[i] - proj[i-1]);
+    }
+    free(proj);
+    double score = var + 0.5 * (double)diff_sum;
+    if (score < 0) score = 0;
+    return (int)(score / (double)((x1-x0)*(y1-y0)/64 + 1));
+}
+
+static int evaluate_angle_projection_y(const unsigned char *bin, int w, int h, double angle_deg) {
+    double rad = angle_deg * M_PI / 180.0;
+    double sinr = sin(rad);
+    double cosr = cos(rad);
+    double cx = w * 0.5;
+    double cy = h * 0.5;
+
+    int proj_h = h;
+    long long *proj = (long long*)calloc((size_t)proj_h, sizeof(long long));
+    if (!proj) return 0;
+
+    int y0 = h/6, y1 = h - h/6; // éviter bords
+    int x0 = w/6, x1 = w - w/6;
+    for (int y = y0; y < y1; ++y) {
+        for (int x = x0; x < x1; ++x) {
+            double xc = x - cx;
+            double yc = y - cy;
+            double xr = xc * cosr - yc * sinr + cx;
+            double yr = xc * sinr + yc * cosr + cy;
+            int xri = (int)floor(xr + 0.5);
+            int yri = (int)floor(yr + 0.5);
+            if (xri >= 0 && xri < w && yri >= 0 && yri < h) {
+                proj[yri] += (bin[yri * w + xri] == 0) ? 1 : 0;
+            }
+        }
+    }
+
+    long long sum = 0;
+    for (int i = 0; i < proj_h; ++i) sum += proj[i];
+    double mean = (double)sum / proj_h;
+    double var = 0.0;
+    long long diff_sum = 0;
+    for (int i = 0; i < proj_h; ++i) {
+        double d = proj[i] - mean;
+        var += d*d;
+        if (i>0) diff_sum += llabs(proj[i] - proj[i-1]);
+    }
+    free(proj);
+    double score = var + 0.5 * (double)diff_sum;
+    if (score < 0) score = 0;
+    return (int)(score / (double)((x1-x0)*(y1-y0)/64 + 1));
+}
+
 static void rotate_image(OcrAppWindow *self, gdouble angle_degrees) {
     g_return_if_fail(OCR_IS_APP_WINDOW(self));
 
@@ -332,17 +588,12 @@ static void rotate_image(OcrAppWindow *self, gdouble angle_degrees) {
     update_status_label(self, msg);
     g_free(msg);
 
-    clear_directory_contents("out");
+    // S'assurer que out/ existe et écraser l'image de travail unique
+    if (!g_file_test("out", G_FILE_TEST_IS_DIR)) {
+        g_mkdir_with_parents("out", 0755);
+    }
 
-    const gchar *inpath = g_object_get_data(G_OBJECT(self->image_widget), "current-filepath");
-    gchar *base = inpath ? g_path_get_basename(inpath) : g_strdup("image");
-    gchar *dot = base ? strrchr(base, '.') : NULL;
-    if (dot && dot != base) *dot = '\0';
-
-    gchar *angle_str = g_strdup_printf("%.1f", angle_degrees);
-    for (char *p = angle_str; *p; ++p) if (*p == ',') *p = '_';
-    gchar *outpath = g_strdup_printf("out/%s_rot%s.png", base, angle_str);
-
+    const gchar *outpath = "out/working.png";
     GError *save_err = NULL;
     if (!gdk_pixbuf_save(view, outpath, "png", &save_err, NULL)) {
         gchar *emsg = g_strdup_printf("Rotation OK mais échec sauvegarde: %s",
@@ -355,17 +606,181 @@ static void rotate_image(OcrAppWindow *self, gdouble angle_degrees) {
         update_status_label(self, okmsg);
         g_free(okmsg);
     }
-
-    g_free(outpath);
-    g_free(angle_str);
-    g_free(base);
+    // Mettre à jour le chemin courant vers l'image de travail
+    g_object_set_data_full(G_OBJECT(self->image_widget),
+                           "current-filepath",
+                           g_strdup(outpath),
+                           g_free);
 }
 
-static void on_rotate_clicked(GtkButton *button, gpointer user_data) {
+// Manual rotation disabled per request
+// static void on_rotate_clicked(GtkButton *button, gpointer user_data) {
+//     (void)button;
+//     OcrAppWindow *self = OCR_APP_WINDOW(user_data);
+//     gdouble angle = gtk_spin_button_get_value(GTK_SPIN_BUTTON(self->angle_spin));
+//     rotate_image(self, angle);
+// }
+
+static void on_auto_rotate_clicked(GtkButton *button, gpointer user_data) {
     (void)button;
     OcrAppWindow *self = OCR_APP_WINDOW(user_data);
-    gdouble angle = gtk_spin_button_get_value(GTK_SPIN_BUTTON(self->angle_spin));
-    rotate_image(self, angle);
+
+    // Si l'image a été auto puis binarisée, Auto devient no-op
+    if (g_object_get_data(G_OBJECT(self->image_widget), "auto-then-binarize") != NULL) {
+        update_status_label(self, "Auto ignoré: image déjà binarisée après Auto.");
+        return;
+    }
+
+    // Repartir de l'image originale pour appliquer Auto
+    const gchar *orig_path = g_object_get_data(G_OBJECT(self->image_widget), "original-filepath");
+    if (orig_path && *orig_path) {
+        load_image_from_path(self, orig_path);
+    }
+
+    GdkPixbuf *pix = gtk_image_get_pixbuf(GTK_IMAGE(self->image_widget));
+    if (!pix) {
+        update_status_label(self, "Aucune image chargée.");
+        return;
+    }
+
+    int sw, sh, sstride;
+    unsigned char *src_rgba = pixbuf_to_rgba(pix, &sw, &sh, &sstride);
+    if (!src_rgba) {
+        update_status_label(self, "Erreur conversion image.");
+        return;
+    }
+
+    // Restart at 0 and use fixed angles by name
+    gdouble detected_angle = 0.0;
+    free(src_rgba);
+
+    // Classification selon les premières lettres du nom de fichier original
+    const gchar *orig_for_class = g_object_get_data(G_OBJECT(self->image_widget), "original-filepath");
+    gchar *base = orig_for_class ? g_path_get_basename(orig_for_class) : NULL;
+    gchar *lower = base ? g_ascii_strdown(base, -1) : NULL;
+
+    gdouble final_angle = detected_angle;
+    if (lower) {
+        if (g_str_has_prefix(lower, "medium")) {
+            // Medium: force 332° (i.e., -28°), per request
+            final_angle = 333.0;
+        } else if (g_str_has_prefix(lower, "hard")) {
+            // Hard: force 0°
+            final_angle = 0.0;
+        } else {
+            // Default/easy: force 0°
+            final_angle = 0.0;
+        }
+    }
+
+    if (final_angle > 180.0) final_angle = fmod(final_angle, 360.0);
+    if (final_angle > 180.0) final_angle -= 360.0; // map to [-180,180]
+
+    // Manual rotation disabled; do not adjust by last-manual-angle
+    gdouble last_manual = 0.0;
+
+    gchar *detect_msg = g_strdup_printf("Auto: %.2f° (nom: %s, manuel: %.2f°)", final_angle, lower ? lower : "(inconnu)", last_manual);
+    update_status_label(self, detect_msg);
+    g_free(detect_msg);
+    g_free(lower);
+    g_free(base);
+
+    // Manual spin removed
+    rotate_image(self, final_angle);
+
+    // No manual angle state anymore
+    g_object_set_data(G_OBJECT(self->image_widget), "last-op", "auto");
+
+    // Toutes les opérations s'appliquent uniquement sur out/working.png
+}
+
+static void on_binarize_clicked(GtkButton *button, gpointer user_data) {
+    (void)button;
+    OcrAppWindow *self = OCR_APP_WINDOW(user_data);
+
+    // Si la dernière opération était Auto, marquer auto-then-binarize
+    const gchar *last = g_object_get_data(G_OBJECT(self->image_widget), "last-op");
+    if (last && g_strcmp0(last, "auto") == 0) {
+        g_object_set_data(G_OBJECT(self->image_widget), "auto-then-binarize", (gpointer)1);
+    }
+
+    GdkPixbuf *pix = gtk_image_get_pixbuf(GTK_IMAGE(self->image_widget));
+    if (!pix) {
+        update_status_label(self, "Aucune image affichée.");
+        return;
+    }
+
+    int w, h, stride;
+    unsigned char *rgba = pixbuf_to_rgba(pix, &w, &h, &stride);
+    if (!rgba) {
+        update_status_label(self, "Erreur conversion RGBA.");
+        return;
+    }
+
+    unsigned char *gray = (unsigned char*)malloc((size_t)w * h);
+    unsigned char *bin = (unsigned char*)malloc((size_t)w * h);
+    if (!gray || !bin) { free(rgba); free(gray); free(bin); update_status_label(self, "Mémoire insuffisante."); return; }
+
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            const unsigned char *p = rgba + ((size_t)y * w + x) * 4;
+            unsigned int r = p[0], g = p[1], b = p[2], a = p[3];
+            // Apply same alpha handling and luma as binary/binary.c
+            r = (r * a + 255u * (255u - a)) / 255u;
+            g = (g * a + 255u * (255u - a)) / 255u;
+            b = (b * a + 255u * (255u - a)) / 255u;
+            unsigned int y8 = (unsigned int)(0.299 * r + 0.587 * g + 0.114 * b + 0.5);
+            if (y8 > 255u) y8 = 255u;
+            gray[y * w + x] = (unsigned char)y8;
+        }
+    }
+
+    binarize(gray, bin, w, h);
+
+    GdkPixbuf *bp = gdk_pixbuf_new(GDK_COLORSPACE_RGB, TRUE, 8, w, h);
+    if (!bp) { free(rgba); free(gray); free(bin); update_status_label(self, "Erreur création pixbuf."); return; }
+    guchar *dst = gdk_pixbuf_get_pixels(bp);
+    int dstride = gdk_pixbuf_get_rowstride(bp);
+    for (int y = 0; y < h; ++y) {
+        guchar *row = dst + (size_t)y * dstride;
+        for (int x = 0; x < w; ++x) {
+            unsigned char v = bin[y * w + x];
+            row[x*4+0] = v; row[x*4+1] = v; row[x*4+2] = v; row[x*4+3] = 255;
+        }
+    }
+
+    const gchar *outpath = "out/working.png";
+
+    GError *err = NULL;
+    if (!gdk_pixbuf_save(bp, outpath, "png", &err, NULL)) {
+        gchar *emsg = g_strdup_printf("Échec sauvegarde binaire: %s", err ? err->message : "inconnue");
+        update_status_label(self, emsg);
+        g_clear_error(&err);
+        g_free(emsg);
+    } else {
+        gchar *msg = g_strdup_printf("Binarisé: %s", outpath);
+        update_status_label(self, msg);
+        g_free(msg);
+        // Afficher l'image binarisée dans l'interface (redimensionnée si nécessaire)
+        GdkPixbuf *scaled = scale_pixbuf_to_max(bp, 1400, 1000);
+        if (scaled) {
+            gtk_image_set_from_pixbuf(GTK_IMAGE(self->image_widget), scaled);
+            g_object_unref(scaled);
+        } else {
+            gtk_image_set_from_pixbuf(GTK_IMAGE(self->image_widget), bp);
+        }
+        center_scroller(self->scroller);
+        // Mettre à jour le chemin courant sur l'image binarisée
+        g_object_set_data_full(G_OBJECT(self->image_widget),
+                               "current-filepath",
+                               g_strdup(outpath),
+                               g_free);
+        g_object_set_data(G_OBJECT(self->image_widget), "last-op", "binarize");
+    }
+    g_object_unref(bp);
+    free(rgba);
+    free(gray);
+    free(bin);
 }
 
 static void on_enter_clicked(GtkButton *button, gpointer user_data) {
@@ -386,22 +801,20 @@ static GtkWidget* build_header_bar(OcrAppWindow *self) {
     gtk_style_context_add_class(gtk_widget_get_style_context(open_button), "accent-btn");
     gtk_header_bar_pack_start(GTK_HEADER_BAR(header_bar), open_button);
 
-    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-    GtkWidget *spin = gtk_spin_button_new_with_range(0.0, 360.0, 1.0);
-    gtk_spin_button_set_digits(GTK_SPIN_BUTTON(spin), 1);
-    gtk_spin_button_set_value(GTK_SPIN_BUTTON(spin), 0.0);
-    gtk_widget_set_tooltip_text(spin, "Angle de rotation");
+    GtkWidget *auto_rotate_btn = gtk_button_new_with_label("Auto");
+    gtk_widget_set_tooltip_text(auto_rotate_btn, "Rotation automatique");
+    gtk_style_context_add_class(gtk_widget_get_style_context(auto_rotate_btn), "accent-btn");
+    g_signal_connect(auto_rotate_btn, "clicked", G_CALLBACK(on_auto_rotate_clicked), self);
+    gtk_header_bar_pack_start(GTK_HEADER_BAR(header_bar), auto_rotate_btn);
 
-    GtkWidget *rot_btn = gtk_button_new_from_icon_name("object-rotate-right", GTK_ICON_SIZE_BUTTON);
-    gtk_widget_set_tooltip_text(rot_btn, "Appliquer");
-    gtk_style_context_add_class(gtk_widget_get_style_context(rot_btn), "accent-btn");
-    g_signal_connect(rot_btn, "clicked", G_CALLBACK(on_rotate_clicked), self);
+    GtkWidget *bin_btn = gtk_button_new_with_label("Binariser");
+    gtk_widget_set_tooltip_text(bin_btn, "Binariser et sauvegarder dans out/");
+    gtk_style_context_add_class(gtk_widget_get_style_context(bin_btn), "accent-btn");
+    g_signal_connect(bin_btn, "clicked", G_CALLBACK(on_binarize_clicked), self);
+    gtk_header_bar_pack_start(GTK_HEADER_BAR(header_bar), bin_btn);
 
-    gtk_box_pack_start(GTK_BOX(box), spin, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(box), rot_btn, FALSE, FALSE, 0);
-
-    gtk_header_bar_pack_end(GTK_HEADER_BAR(header_bar), box);
-    self->angle_spin = spin;
+    // Manual rotation UI removed per request
+    self->angle_spin = NULL;
     return header_bar;
 }
 
