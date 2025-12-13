@@ -72,77 +72,163 @@ static void assurer_repertoire(const char *p) {
     MKDIR(p);
 }
 
-#define WORD_TILE_SIZE 32
-#define WORD_TILE_MARGIN 2
+#define LETTER_MARGIN 4
+#define TILE_TARGET 32
+#define TILE_MARGIN 2
+#define DARK_THRESHOLD 200
 
-static unsigned char *normalize_letter_bitmap(const unsigned char *src, int w, int h)
+static void binariser(unsigned char *src, int count)
+{
+    if (!src || count <= 0) return;
+    for (int i = 0; i < count; ++i)
+        src[i] = (src[i] < DARK_THRESHOLD) ? 0 : 255;
+}
+
+static void effacer_bord_noir(unsigned char *src, int w, int h)
+{
+    if (!src || w <= 0 || h <= 0) return;
+    int size = w * h;
+    unsigned char *vis = calloc(size, 1);
+    int *stack = malloc(sizeof(int) * size);
+    if (!vis || !stack) {
+        free(vis);
+        free(stack);
+        return;
+    }
+
+    int sp = 0;
+    for (int x = 0; x < w; ++x) {
+        int top = x;
+        int bottom = (h - 1) * w + x;
+        if (!vis[top] && src[top] == 0) { vis[top] = 1; stack[sp++] = top; }
+        if (!vis[bottom] && src[bottom] == 0) { vis[bottom] = 1; stack[sp++] = bottom; }
+    }
+    for (int y = 0; y < h; ++y) {
+        int left = y * w;
+        int right = y * w + (w - 1);
+        if (!vis[left] && src[left] == 0) { vis[left] = 1; stack[sp++] = left; }
+        if (!vis[right] && src[right] == 0) { vis[right] = 1; stack[sp++] = right; }
+    }
+
+    static const int dirs[4][2] = {{1,0},{-1,0},{0,1},{0,-1}};
+
+    while (sp > 0) {
+        int idx = stack[--sp];
+        src[idx] = 255;
+        int y = idx / w;
+        int x = idx % w;
+        for (int d = 0; d < 4; ++d) {
+            int nx = x + dirs[d][0];
+            int ny = y + dirs[d][1];
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+            int nidx = ny * w + nx;
+            if (!vis[nidx] && src[nidx] == 0) {
+                vis[nidx] = 1;
+                stack[sp++] = nidx;
+            }
+        }
+    }
+
+    free(vis);
+    free(stack);
+}
+
+static unsigned char *ajouter_bord_blanc(const unsigned char *src, int w, int h,
+                                         int marge, int *ow, int *oh)
 {
     if (!src || w <= 0 || h <= 0) return NULL;
+    if (marge < 0) marge = 0;
+    int nw = w + marge * 2;
+    int nh = h + marge * 2;
+    if (nw <= 0 || nh <= 0) return NULL;
 
-    unsigned char *dst = malloc(WORD_TILE_SIZE * WORD_TILE_SIZE);
+    unsigned char *dst = malloc(nw * nh);
     if (!dst) return NULL;
-    memset(dst, 255, WORD_TILE_SIZE * WORD_TILE_SIZE);
+    memset(dst, 255, nw * nh);
 
+    for (int y = 0; y < h; ++y) {
+        memcpy(dst + (y + marge) * nw + marge, src + y * w, w);
+    }
+
+    if (ow) *ow = nw;
+    if (oh) *oh = nh;
+    return dst;
+}
+
+static unsigned char *extraire_contenu_noir(const unsigned char *src, int w, int h,
+                                            int *ow, int *oh)
+{
+    if (!src || w <= 0 || h <= 0) return NULL;
     int x0 = w, y0 = h, x1 = -1, y1 = -1;
-    int dark = 0;
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {
-            unsigned char v = src[y * w + x];
-            if (v < 200) {
+            if (src[y * w + x] < DARK_THRESHOLD) {
                 if (x < x0) x0 = x;
                 if (x > x1) x1 = x;
                 if (y < y0) y0 = y;
                 if (y > y1) y1 = y;
-                dark++;
             }
         }
     }
-    if (x1 < x0 || y1 < y0) {
-        x0 = 0; y0 = 0; x1 = w - 1; y1 = h - 1;
+    if (x1 < x0 || y1 < y0) return NULL;
+    int nw = x1 - x0 + 1;
+    int nh = y1 - y0 + 1;
+    if (nw <= 0 || nh <= 0) return NULL;
+
+    unsigned char *dst = malloc(nw * nh);
+    if (!dst) return NULL;
+    for (int y = 0; y < nh; ++y)
+        memcpy(dst + y * nw, src + (y0 + y) * w + x0, nw);
+
+    if (ow) *ow = nw;
+    if (oh) *oh = nh;
+    return dst;
+}
+
+static unsigned char *redimensionner_tile(const unsigned char *src, int w, int h,
+                                          int target, int marge, int *ow, int *oh)
+{
+    if (!src || w <= 0 || h <= 0 || target <= 0) return NULL;
+    if (marge < 0) marge = 0;
+    int avail = target - marge * 2;
+    if (avail <= 0) {
+        marge = 0;
+        avail = target;
     }
 
-    int bw = x1 - x0 + 1;
-    int bh = y1 - y0 + 1;
-    if (bw < 1) bw = 1;
-    if (bh < 1) bh = 1;
+    unsigned char *dst = malloc(target * target);
+    if (!dst) return NULL;
+    memset(dst, 255, target * target);
 
-    double avail_w = (double)(WORD_TILE_SIZE - WORD_TILE_MARGIN * 2);
-    double avail_h = (double)(WORD_TILE_SIZE - WORD_TILE_MARGIN * 2);
-    if (avail_w < 1.0) avail_w = (double)WORD_TILE_SIZE;
-    if (avail_h < 1.0) avail_h = (double)WORD_TILE_SIZE;
-    double scale = fmin(avail_w / (double)bw, avail_h / (double)bh);
+    double scale = fmin((double)avail / (double)w, (double)avail / (double)h);
     if (scale <= 0.0) scale = 1.0;
 
-    int dw = (int)(bw * scale + 0.5);
-    int dh = (int)(bh * scale + 0.5);
+    int dw = (int)round((double)w * scale);
+    int dh = (int)round((double)h * scale);
     if (dw < 1) dw = 1;
     if (dh < 1) dh = 1;
-    if (dw > WORD_TILE_SIZE) dw = WORD_TILE_SIZE;
-    if (dh > WORD_TILE_SIZE) dh = WORD_TILE_SIZE;
+    if (dw > avail) dw = avail;
+    if (dh > avail) dh = avail;
 
-    int offx = (WORD_TILE_SIZE - dw) / 2;
-    int offy = (WORD_TILE_SIZE - dh) / 2;
+    int offx = (target - dw) / 2;
+    int offy = (target - dh) / 2;
 
-    for (int ty = 0; ty < dh; ++ty) {
-        double ry = (dh <= 1) ? 0.0 : (double)ty / (double)(dh - 1);
-        int sy = y0 + (int)round(ry * (double)(bh - 1));
-        if (sy < y0) sy = y0;
-        if (sy > y1) sy = y1;
-        for (int tx = 0; tx < dw; ++tx) {
-            double rx = (dw <= 1) ? 0.0 : (double)tx / (double)(dw - 1);
-            int sx = x0 + (int)round(rx * (double)(bw - 1));
-            if (sx < x0) sx = x0;
-            if (sx > x1) sx = x1;
-            unsigned char v = src[sy * w + sx];
-            unsigned char out = (v < 200) ? 0 : 255;
-            int dx = offx + tx;
-            int dy = offy + ty;
-            if (dx >= 0 && dx < WORD_TILE_SIZE && dy >= 0 && dy < WORD_TILE_SIZE) {
-                dst[dy * WORD_TILE_SIZE + dx] = out;
-            }
+    for (int y = 0; y < dh; ++y) {
+        double ry = (dh <= 1) ? 0.0 : (double)y / (double)(dh - 1);
+        int sy = (int)round(ry * (double)(h - 1));
+        if (sy < 0) sy = 0;
+        if (sy >= h) sy = h - 1;
+        for (int x = 0; x < dw; ++x) {
+            double rx = (dw <= 1) ? 0.0 : (double)x / (double)(dw - 1);
+            int sx = (int)round(rx * (double)(w - 1));
+            if (sx < 0) sx = 0;
+            if (sx >= w) sx = w - 1;
+            dst[(offy + y) * target + (offx + x)] = src[sy * w + sx];
         }
     }
 
+    if (ow) *ow = target;
+    if (oh) *oh = target;
     return dst;
 }
 
@@ -423,15 +509,28 @@ static void enregistrer_lettres(const unsigned char *word, int w, int h, int wor
             memcpy(glyph + yy * lw, word + (ly0 + yy) * w + lx0, lw);
         }
 
-        unsigned char *norm = normalize_letter_bitmap(glyph, lw, lh);
-        const unsigned char *outbuf = norm ? norm : glyph;
-        int ow = norm ? WORD_TILE_SIZE : lw;
-        int oh = norm ? WORD_TILE_SIZE : lh;
+        int cw = lw, ch = lh;
+        unsigned char *trim = extraire_contenu_noir(glyph, lw, lh, &cw, &ch);
+        unsigned char *base = trim ? trim : glyph;
+        binariser(base, cw * ch);
+        effacer_bord_noir(base, cw, ch);
+
+        int ow = cw, oh = ch;
+        unsigned char *padded = ajouter_bord_blanc(base, cw, ch, LETTER_MARGIN, &ow, &oh);
+        unsigned char *outbuf = padded ? padded : base;
+        binariser(outbuf, ow * oh);
+        int tw = ow, th = oh;
+        unsigned char *resized = redimensionner_tile(outbuf, ow, oh, TILE_TARGET, TILE_MARGIN, &tw, &th);
+        unsigned char *final_img = resized ? resized : outbuf;
+        if (resized) binariser(final_img, tw * th);
 
         char fn[512];
         snprintf(fn, sizeof(fn), "%s/%d.png", word_dir, i + 1);
-        sauver(fn, (unsigned char *)outbuf, ow, oh);
-        if (norm) free(norm);
+        sauver(fn, final_img, resized ? tw : ow, resized ? th : oh);
+
+        free(resized);
+        free(padded);
+        free(trim);
         free(glyph);
     }
 
@@ -439,7 +538,6 @@ static void enregistrer_lettres(const unsigned char *word, int w, int h, int wor
 }
 
 int extraire_mots(const char *img_path, const char *out_dir) {
-
     unsigned char *pix;
     int W, H;
 

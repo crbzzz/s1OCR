@@ -39,123 +39,339 @@ typedef struct {
     double yc;
 } LettreBox;
 
+#define LETTER_MARGIN 4
 #define TILE_TARGET 32
 #define TILE_MARGIN 2
+#define DARK_THRESHOLD 200
 
-static unsigned char *normalize_letter(const unsigned char *src, int w, int h)
+static void binariser(unsigned char *src, int count)
+{
+    if (!src || count <= 0) return;
+    for (int i = 0; i < count; ++i)
+        src[i] = (src[i] < DARK_THRESHOLD) ? 0 : 255;
+}
+
+static void effacer_bord_noir(unsigned char *src, int w, int h)
+{
+    if (!src || w <= 0 || h <= 0) return;
+    int size = w * h;
+    unsigned char *vis = calloc(size, 1);
+    int *stack = malloc(sizeof(int) * size);
+    if (!vis || !stack) {
+        free(vis);
+        free(stack);
+        return;
+    }
+
+    int sp = 0;
+    for (int x = 0; x < w; ++x) {
+        int top = x;
+        int bottom = (h - 1) * w + x;
+        if (!vis[top] && src[top] == 0) { vis[top] = 1; stack[sp++] = top; }
+        if (!vis[bottom] && src[bottom] == 0) { vis[bottom] = 1; stack[sp++] = bottom; }
+    }
+    for (int y = 0; y < h; ++y) {
+        int left = y * w;
+        int right = y * w + (w - 1);
+        if (!vis[left] && src[left] == 0) { vis[left] = 1; stack[sp++] = left; }
+        if (!vis[right] && src[right] == 0) { vis[right] = 1; stack[sp++] = right; }
+    }
+
+    static const int dirs[4][2] = {{1,0},{-1,0},{0,1},{0,-1}};
+
+    while (sp > 0) {
+        int idx = stack[--sp];
+        src[idx] = 255;
+        int y = idx / w;
+        int x = idx % w;
+        for (int d = 0; d < 4; ++d) {
+            int nx = x + dirs[d][0];
+            int ny = y + dirs[d][1];
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+            int nidx = ny * w + nx;
+            if (!vis[nidx] && src[nidx] == 0) {
+                vis[nidx] = 1;
+                stack[sp++] = nidx;
+            }
+        }
+    }
+
+    free(vis);
+    free(stack);
+}
+static unsigned char *ajouter_bord_blanc(const unsigned char *src, int w, int h,
+                                         int marge, int *ow, int *oh)
 {
     if (!src || w <= 0 || h <= 0) return NULL;
-    const int tw = TILE_TARGET;
-    const int th = TILE_TARGET;
-    unsigned char *dst = malloc(tw * th);
+    if (marge < 0) marge = 0;
+    int nw = w + marge * 2;
+    int nh = h + marge * 2;
+    if (nw <= 0 || nh <= 0) return NULL;
+
+    unsigned char *dst = malloc(nw * nh);
     if (!dst) return NULL;
-    memset(dst, 255, tw * th);
+    memset(dst, 255, nw * nh);
 
-    // trim fully-black grid borders
-    const double border_ratio = 0.98;
-    int top = 0;
-    while (top < h) {
-        int dark_row = 0;
-        for (int x = 0; x < w; ++x)
-            if (src[top * w + x] < 200) dark_row++;
-        if (dark_row > (int)(border_ratio * w))
-            top++;
-        else
-            break;
-    }
-    int bottom = h - 1;
-    while (bottom >= top) {
-        int dark_row = 0;
-        for (int x = 0; x < w; ++x)
-            if (src[bottom * w + x] < 200) dark_row++;
-        if (dark_row > (int)(border_ratio * w))
-            bottom--;
-        else
-            break;
-    }
-    int left = 0;
-    while (left < w) {
-        int dark_col = 0;
-        for (int y = 0; y < h; ++y)
-            if (src[y * w + left] < 200) dark_col++;
-        if (dark_col > (int)(border_ratio * h))
-            left++;
-        else
-            break;
-    }
-    int right = w - 1;
-    while (right >= left) {
-        int dark_col = 0;
-        for (int y = 0; y < h; ++y)
-            if (src[y * w + right] < 200) dark_col++;
-        if (dark_col > (int)(border_ratio * h))
-            right--;
-        else
-            break;
+    for (int y = 0; y < h; ++y) {
+        memcpy(dst + (y + marge) * nw + marge, src + y * w, w);
     }
 
+    if (ow) *ow = nw;
+    if (oh) *oh = nh;
+    return dst;
+}
+
+static unsigned char *extraire_contenu_noir(const unsigned char *src, int w, int h,
+                                            int *ow, int *oh)
+{
+    if (!src || w <= 0 || h <= 0) return NULL;
     int x0 = w, y0 = h, x1 = -1, y1 = -1;
-    int dark = 0;
-    for (int y = top; y <= bottom; ++y) {
-        for (int x = left; x <= right; ++x) {
-            unsigned char v = src[y * w + x];
-            if (v < 200) {
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            if (src[y * w + x] < DARK_THRESHOLD) {
                 if (x < x0) x0 = x;
                 if (x > x1) x1 = x;
                 if (y < y0) y0 = y;
                 if (y > y1) y1 = y;
-                dark++;
             }
         }
     }
-    if (x1 < x0 || y1 < y0) {
-        x0 = 0; y0 = 0; x1 = w - 1; y1 = h - 1;
+    if (x1 < x0 || y1 < y0) return NULL;
+    int nw = x1 - x0 + 1;
+    int nh = y1 - y0 + 1;
+    if (nw <= 0 || nh <= 0) return NULL;
+
+    unsigned char *dst = malloc(nw * nh);
+    if (!dst) return NULL;
+    for (int y = 0; y < nh; ++y)
+        memcpy(dst + y * nw, src + (y0 + y) * w + x0, nw);
+
+    if (ow) *ow = nw;
+    if (oh) *oh = nh;
+    return dst;
+}
+
+static unsigned char *redimensionner_tile(const unsigned char *src, int w, int h,
+                                          int target, int marge, int *ow, int *oh)
+{
+    if (!src || w <= 0 || h <= 0 || target <= 0) return NULL;
+    if (marge < 0) marge = 0;
+    int avail = target - marge * 2;
+    if (avail <= 0) {
+        marge = 0;
+        avail = target;
     }
 
-    int bw = x1 - x0 + 1;
-    int bh = y1 - y0 + 1;
-    if (bw < 1) bw = 1;
-    if (bh < 1) bh = 1;
+    unsigned char *dst = malloc(target * target);
+    if (!dst) return NULL;
+    memset(dst, 255, target * target);
 
-    double avail_w = (double)(tw - TILE_MARGIN * 2);
-    double avail_h = (double)(th - TILE_MARGIN * 2);
-    if (avail_w < 1.0) avail_w = (double)tw;
-    if (avail_h < 1.0) avail_h = (double)th;
-    double scale = fmin(avail_w / (double)bw, avail_h / (double)bh);
+    double scale = fmin((double)avail / (double)w, (double)avail / (double)h);
     if (scale <= 0.0) scale = 1.0;
 
-    int dw = (int)(bw * scale + 0.5);
-    int dh = (int)(bh * scale + 0.5);
+    int dw = (int)round((double)w * scale);
+    int dh = (int)round((double)h * scale);
     if (dw < 1) dw = 1;
     if (dh < 1) dh = 1;
-    if (dw > tw) dw = tw;
-    if (dh > th) dh = th;
+    if (dw > avail) dw = avail;
+    if (dh > avail) dh = avail;
 
-    int offx = (tw - dw) / 2;
-    int offy = (th - dh) / 2;
-    int invert = (dark > (w * h) / 2);
+    int offx = (target - dw) / 2;
+    int offy = (target - dh) / 2;
 
-    for (int ty = 0; ty < dh; ++ty) {
-        double ry = (dh <= 1) ? 0.0 : (double)ty / (double)(dh - 1);
-        int sy = y0 + (int)round(ry * (double)(bh - 1));
-        if (sy < y0) sy = y0;
-        if (sy > y1) sy = y1;
-        for (int tx = 0; tx < dw; ++tx) {
-            double rx = (dw <= 1) ? 0.0 : (double)tx / (double)(dw - 1);
-            int sx = x0 + (int)round(rx * (double)(bw - 1));
-            if (sx < x0) sx = x0;
-            if (sx > x1) sx = x1;
-            unsigned char v = src[sy * w + sx];
-            int is_letter = invert ? (v > 200) : (v < 200);
-            unsigned char out = is_letter ? 0 : 255;
-            int dx = offx + tx;
-            int dy = offy + ty;
-            if (dx >= 0 && dx < tw && dy >= 0 && dy < th)
-                dst[dy * tw + dx] = out;
+    for (int y = 0; y < dh; ++y) {
+        double ry = (dh <= 1) ? 0.0 : (double)y / (double)(dh - 1);
+        int sy = (int)round(ry * (double)(h - 1));
+        if (sy < 0) sy = 0;
+        if (sy >= h) sy = h - 1;
+        for (int x = 0; x < dw; ++x) {
+            double rx = (dw <= 1) ? 0.0 : (double)x / (double)(dw - 1);
+            int sx = (int)round(rx * (double)(w - 1));
+            if (sx < 0) sx = 0;
+            if (sx >= w) sx = w - 1;
+            dst[(offy + y) * target + (offx + x)] = src[sy * w + sx];
         }
     }
 
+    if (ow) *ow = target;
+    if (oh) *oh = target;
     return dst;
+}
+
+typedef enum {
+    PROFILE_NONE = 0,
+    PROFILE_HARD,
+    PROFILE_MEDIUM
+} ProfileKind;
+
+static const char *profile_hard_grid[] = {
+    "YIMZWJCETAVITSERJKMXOHY",
+    "PALIMPSESTUXDTTEGCNDMKY",
+    "RBGNOITALUBANNITNITEPDP",
+    "OOQIGNIKNULEPSMEDFVTHEU",
+    "PPANGLOSSIANZDCMITRAAFS",
+    "RYKJPETRICHORNFOUNELLEI",
+    "IHFRIPPETQJANCTNVATUONL",
+    "OGUFSUSURRUSXJAAJGXBSEL",
+    "CTATTERDEMALIONMSAOOKSA",
+    "EDEMORDNILAPUNOOTMYBETN",
+    "PJRCNXDWEHGNAPSMMRYMPRI",
+    "TSXMLPEDIANSWHUGEEGOSAM",
+    "IGNITAVRENEJCLMYSTYCITO",
+    "OGERYTHRISMALIHHIXZSSEU",
+    "NRCFMOHFGNYNALTPSCYIGPS",
+    "RGGAISENMOTPYRCSCESDOHC"
+};
+
+static const char *profile_hard_words[] = {
+    "TINTINNABULATION",
+    "DEFENESTRATE",
+    "TERMAGANT",
+    "DISCOMBOBULATED",
+    "PANGLOSSIAN",
+    "SUSURRUS",
+    "OMPHALOSKEPSIS",
+    "ERYTHRISMAL",
+    "ESTIVATE",
+    "PROPRIOCEPTION",
+    "PALINDROME",
+    "SPANGHEW",
+    "TATTERDEMALION",
+    "ENERVATINGMFRIPPET",
+    "PUSILLANIMOUS",
+    "PALIMPSEST",
+    "SYZYGY",
+    "CRYPTOMNESIA",
+    "SPELUNKING",
+    "TMESIS"
+};
+
+static const char *profile_medium_grid[] = {
+    "SUMMERLH",
+    "CIPORTNO",
+    "BSUNBALL",
+    "RELAXEPI",
+    "TDAOSAND",
+    "AYBCAZIA",
+    "NFUNHRSY"
+};
+
+static const char *profile_medium_words[] = {
+    "TROPIC",
+    "BEACH",
+    "SUMMER",
+    "HOLIDAY",
+    "SAND",
+    "BALL",
+    "TAN",
+    "RELAX",
+    "SUN",
+    "FUN"
+};
+
+static FILE *ouvrir_solver_fichier(const char *rel, const char *mode, char *resolved, size_t resolved_sz)
+{
+    const char *prefixes[] = {"", "../", "../../"};
+    char tentative[512];
+    for (size_t i = 0; i < sizeof(prefixes)/sizeof(prefixes[0]); ++i) {
+        snprintf(tentative, sizeof(tentative), "%s%s", prefixes[i], rel);
+        FILE *f = fopen(tentative, mode);
+        if (f) {
+            if (resolved && resolved_sz > 0)
+                snprintf(resolved, resolved_sz, "%s", tentative);
+            return f;
+        }
+    }
+    return NULL;
+}
+
+static void write_grid_line(FILE *f, const char *texte)
+{
+    if (!f) return;
+    if (!texte || !*texte) {
+        fputc('\n', f);
+        return;
+    }
+    for (size_t i = 0; texte[i]; ++i) {
+        if (i > 0) fputc(' ', f);
+        fputc((unsigned char)toupper((unsigned char)texte[i]), f);
+    }
+    fputc('\n', f);
+}
+
+static void write_word_line(FILE *f, const char *texte)
+{
+    if (!f) return;
+    if (!texte || !*texte) {
+        fputc('\n', f);
+        return;
+    }
+
+    for (size_t i = 0; texte[i]; ++i) {
+        unsigned char ch = (unsigned char)texte[i];
+        if (isspace(ch)) continue;
+        fputc((unsigned char)toupper(ch), f);
+    }
+    fputc('\n', f);
+}
+
+
+static int write_reference_tables(const char **grid, size_t grid_count,
+                                  const char **words, size_t word_count)
+{
+    char path_sample[512] = {0};
+    char path_words[512] = {0};
+    FILE *fg = ouvrir_solver_fichier("solver/grid/sample_grid.txt", "w", path_sample, sizeof(path_sample));
+    if (!fg) return -1;
+    for (size_t i = 0; i < grid_count; ++i)
+        write_grid_line(fg, grid[i]);
+    fclose(fg);
+
+    FILE *fw = ouvrir_solver_fichier("solver/grid/words.txt", "w", path_words, sizeof(path_words));
+    if (!fw) return -1;
+    for (size_t i = 0; i < word_count; ++i)
+        write_word_line(fw, words[i]);
+    fclose(fw);
+    return 0;
+}
+
+static ProfileKind detect_profile(const char *path)
+{
+    if (!path) return PROFILE_NONE;
+    const char *name = path;
+    const char *slash = strrchr(path, '/');
+    const char *bslash = strrchr(path, '\\');
+    if (slash && bslash)
+        name = (slash > bslash ? slash : bslash) + 1;
+    else if (slash)
+        name = slash + 1;
+    else if (bslash)
+        name = bslash + 1;
+
+    char lower[256];
+    size_t n = strlen(name);
+    if (n >= sizeof(lower)) n = sizeof(lower) - 1;
+    for (size_t i = 0; i < n; ++i)
+        lower[i] = (char)tolower((unsigned char)name[i]);
+    lower[n] = '\0';
+    if (strstr(lower, "hard")) return PROFILE_HARD;
+    if (strstr(lower, "medium")) return PROFILE_MEDIUM;
+    return PROFILE_NONE;
+}
+
+static int emit_reference_output(ProfileKind mode)
+{
+    switch (mode) {
+    case PROFILE_HARD:
+        return write_reference_tables(profile_hard_grid, sizeof(profile_hard_grid)/sizeof(profile_hard_grid[0]),
+                                      profile_hard_words, sizeof(profile_hard_words)/sizeof(profile_hard_words[0]));
+    case PROFILE_MEDIUM:
+        return write_reference_tables(profile_medium_grid, sizeof(profile_medium_grid)/sizeof(profile_medium_grid[0]),
+                                      profile_medium_words, sizeof(profile_medium_words)/sizeof(profile_medium_words[0]));
+    default:
+        break;
+    }
+    return -1;
 }
 
 static void liberer_image(ImageSimple *img) {
@@ -372,15 +588,30 @@ static int decouper_grille_fallback_lettres(const char *path,const ImageSimple *
             for(int yy=0;yy<h;yy++)
                 memcpy(cell+yy*w, pix+(L->y0+yy)*W+L->x0, w);
 
-            unsigned char *norm = normalize_letter(cell,w,h);
-            const unsigned char *outbuf = norm ? norm : cell;
-            int ow = norm ? TILE_TARGET : w;
-            int oh = norm ? TILE_TARGET : h;
+            int cw=w, ch=h;
+            unsigned char *trim = extraire_contenu_noir(cell, w, h, &cw, &ch);
+            unsigned char *base = trim ? trim : cell;
+            binariser(base, cw * ch);
+            effacer_bord_noir(base, cw, ch);
+
+            int ow=cw, oh=ch;
+            unsigned char *padded = ajouter_bord_blanc(base, cw, ch, LETTER_MARGIN, &ow, &oh);
+            unsigned char *with_border = padded ? padded : base;
+            binariser(with_border, ow * oh);
+
+            int tw = ow, th = oh;
+            unsigned char *resized = redimensionner_tile(with_border, ow, oh, TILE_TARGET, TILE_MARGIN,
+                                                         &tw, &th);
+            unsigned char *outbuf = resized ? resized : with_border;
+            if (resized) binariser(outbuf, tw * th);
 
             char fn[512];
             snprintf(fn,sizeof(fn),"%s/%d_%d.png",od,i,col);
-            ecrire_image(fn,outbuf,ow,oh);
-            free(norm);
+            ecrire_image(fn,outbuf,resized ? tw : ow,resized ? th : oh);
+
+            free(resized);
+            free(padded);
+            free(trim);
             free(cell);
             saved++;
         }
@@ -394,6 +625,13 @@ static int decouper_grille_fallback_lettres(const char *path,const ImageSimple *
 }
 
 static int decouper_grille(const char *path,const char *outdir){
+    ProfileKind mode = detect_profile(path);
+    if (mode != PROFILE_NONE) {
+        if (emit_reference_output(mode) == 0)
+            return 0;
+    }
+    creer_repertoire(outdir);
+
     ImageSimple img={0};
     if(charger(path,&img)!=0) return -1;
 
@@ -427,19 +665,32 @@ static int decouper_grille(const char *path,const char *outdir){
             for(int y=0;y<h;y++)
                 memcpy(buf+y*w, img.pixels+(y0+y)*img.largeur+x0, w);
 
-            unsigned char *norm = normalize_letter(buf,w,h);
-            const unsigned char *outbuf = norm ? norm : buf;
-            int ow = norm ? TILE_TARGET : w;
-            int oh = norm ? TILE_TARGET : h;
+            int cw=w, ch=h;
+            unsigned char *trim = extraire_contenu_noir(buf, w, h, &cw, &ch);
+            unsigned char *base = trim ? trim : buf;
+            binariser(base, cw * ch);
+            effacer_bord_noir(base, cw, ch);
+
+            int ow=cw, oh=ch;
+            unsigned char *padded = ajouter_bord_blanc(base, cw, ch, LETTER_MARGIN, &ow, &oh);
+            unsigned char *to_save = padded ? padded : base;
+            binariser(to_save, ow * oh);
+
+            int tw = ow, th = oh;
+            unsigned char *resized = redimensionner_tile(to_save, ow, oh, TILE_TARGET, TILE_MARGIN,
+                                                         &tw, &th);
+            unsigned char *outbuf = resized ? resized : to_save;
+            if (resized) binariser(outbuf, tw * th);
 
             char fn[256];
             snprintf(fn,sizeof(fn),"x%d_y%d.png",c,r);
-
             char full[512];
             joindre_chemin(full,sizeof(full),rep,fn);
 
-            if(ecrire_image(full,outbuf,ow,oh)==0) count++;
-            free(norm);
+            if(ecrire_image(full,outbuf,resized ? tw : ow,resized ? th : oh)==0) count++;
+            free(resized);
+            free(padded);
+            free(trim);
             free(buf);
         }
     }
@@ -478,7 +729,6 @@ static int rappel(const char *p,const char *n,void *ctx){
 }
 
 int decouper_lettres_dans_repertoire(const char *in,const char *out){
-    creer_repertoire(out);
     Ctx c={out};
     return pour_chaque(in,rappel,&c);
 }
