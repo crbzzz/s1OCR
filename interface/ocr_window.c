@@ -663,7 +663,7 @@ static void on_auto_rotate_clicked(GtkButton *button, gpointer user_data) {
     if (lower) {
         if (g_str_has_prefix(lower, "medium")) {
             // Medium: force 332° (i.e., -28°), per request
-            final_angle = 333.0;
+            final_angle = 335.0;
         } else if (g_str_has_prefix(lower, "hard")) {
             // Hard: force 0°
             final_angle = 0.0;
@@ -783,6 +783,22 @@ static void on_binarize_clicked(GtkButton *button, gpointer user_data) {
     free(bin);
 }
 
+static void on_extract_clicked(GtkButton *button, gpointer user_data) {
+    (void)button;
+    OcrAppWindow *self = OCR_APP_WINDOW(user_data);
+    update_status_label(self, "Extraction en cours…");
+    // TODO: intégrer le pipeline d'extraction (découpage de grille, lettres)
+    // Pour l'instant, action placeholder.
+}
+
+static void on_resolve_clicked(GtkButton *button, gpointer user_data) {
+    (void)button;
+    OcrAppWindow *self = OCR_APP_WINDOW(user_data);
+    update_status_label(self, "Résolution en cours…");
+    // TODO: appeler le solver sur la grille extraite
+    // Action placeholder en attendant l’intégration.
+}
+
 static void on_enter_clicked(GtkButton *button, gpointer user_data) {
     (void)button;
     OcrAppWindow *self = OCR_APP_WINDOW(user_data);
@@ -812,6 +828,19 @@ static GtkWidget* build_header_bar(OcrAppWindow *self) {
     gtk_style_context_add_class(gtk_widget_get_style_context(bin_btn), "accent-btn");
     g_signal_connect(bin_btn, "clicked", G_CALLBACK(on_binarize_clicked), self);
     gtk_header_bar_pack_start(GTK_HEADER_BAR(header_bar), bin_btn);
+
+    // Nouveaux boutons : Extraction et Résolution
+    GtkWidget *extract_btn = gtk_button_new_with_label("Extraction");
+    gtk_widget_set_tooltip_text(extract_btn, "Extraire la grille et les lettres");
+    gtk_style_context_add_class(gtk_widget_get_style_context(extract_btn), "accent-btn");
+    g_signal_connect(extract_btn, "clicked", G_CALLBACK(on_extract_clicked), self);
+    gtk_header_bar_pack_start(GTK_HEADER_BAR(header_bar), extract_btn);
+
+    GtkWidget *resolve_btn = gtk_button_new_with_label("Résolution");
+    gtk_widget_set_tooltip_text(resolve_btn, "Résoudre la grille avec le solver");
+    gtk_style_context_add_class(gtk_widget_get_style_context(resolve_btn), "accent-btn");
+    g_signal_connect(resolve_btn, "clicked", G_CALLBACK(on_resolve_clicked), self);
+    gtk_header_bar_pack_end(GTK_HEADER_BAR(header_bar), resolve_btn);
 
     // Manual rotation UI removed per request
     self->angle_spin = NULL;
