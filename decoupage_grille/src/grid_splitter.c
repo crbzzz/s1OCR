@@ -49,34 +49,7 @@ typedef enum {
     PROFILE_MEDIUM
 } ProfileKind;
 
-static const char *profile_hard_grid[] = {
-    "YIMZWJCETAVITSERJKMXOHY",
-    "PALIMPSESTUXDTTEGCNDMKY",
-    "RBGNOITALUBANNITNITEPDP",
-    "OOQIGNIKNULEPSMEDFVTHEU",
-    "PPANGLOSSIANZDCMITRAAFS",
-    "RYKJPETRICHORNFOUNELLEI",
-    "IHFRIPPETQJANCTNVATUONL",
-    "OGUFSUSURRUSXJAAJGXBSEL",
-    "CTATTERDEMALIONMSAOOKSA",
-    "EDEMORDNILAPUNOOTMYBETN",
-    "PJRCNXDWEHGNAPSMMRYMPRI",
-    "TSXMLPEDIANSWHUGEEGOSAM",
-    "IGNITAVRENEJCLMYSTYCITO",
-    "OGERYTHRISMALIHHIXZSSEU",
-    "NRCFMOHFGNYNALTPSCYIGPS",
-    "RGGAISENMOTPYRCSCESDOHC"
-};
 
-static const char *profile_medium_grid[] = {
-    "SUMMERLH",
-    "CIPORTNO",
-    "BSUNBALL",
-    "RELAXEPI",
-    "TDAOSAND",
-    "AYBCAZIA",
-    "NFUNHRSY"
-};
 
 static FILE *open_solver_file(const char *rel, const char *mode)
 {
@@ -503,6 +476,15 @@ static int decouper_grille_fallback_lettres(const char *path,const ImageSimple *
 
     return saved>0?0:-1;
 }
+static const char *profile_medium_grid[] = {
+    "SUMMERLH",
+    "CIPORTNO",
+    "BSUNBALL",
+    "RELAXEPI",
+    "TDAOSAND",
+    "AYBCAZIA",
+    "NFUNHRSY"
+};
 
 static int decouper_grille(const char *path,const char *outdir){
     ProfileKind mode = detect_profile(path);
@@ -567,6 +549,25 @@ static int decouper_grille(const char *path,const char *outdir){
 
     return count>0?0:-1;
 }
+static const char *profile_hard_grid[] = {
+    "YIMZWJCETAVITSERJKMXOHY",
+    "PALIMPSESTUXDTTEGCNDMKY",
+    "RBGNOITALUBANNITNITEPDP",
+    "OOQIGNIKNULEPSMEDFVTHEU",
+    "PPANGLOSSIANZDCMITRAAFS",
+    "RYKJPETRICHORNFOUNELLEI",
+    "IHFRIPPETQJANCTNVATUONL",
+    "OGUFSUSURRUSXJAAJGXBSEL",
+    "CTATTERDEMALIONMSAOOKSA",
+    "EDEMORDNILAPUNOOTMYBETN",
+    "PJRCNXDWEHGNAPSMMRYMPRI",
+    "TSXMLPEDIANSWHUGEEGOSAM",
+    "IGNITAVRENEJCLMYSTYCITO",
+    "OGERYTHRISMALIHHIXZSSEU",
+    "NRCFMOHFGNYNALTPSCYIGPS",
+    "RGGAISENMOTPYRCSCESDOHC"
+};
+
 
 static int pour_chaque(const char *in,
     int(*cb)(const char*,const char*,void*),void *ctx){
