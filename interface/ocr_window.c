@@ -96,18 +96,18 @@ static void load_image_from_path(OcrAppWindow *self, const gchar *filepath) {
         update_status_label(self, "Chemin d'image invalide.");
         return;
     }
-    // Préparer dossier out/ sans supprimer les autres fichiers
+    
     if (!g_file_test("out", G_FILE_TEST_IS_DIR)) {
         g_mkdir_with_parents("out", 0755);
     }
 
-    // Conserver le chemin original pour la classification
+    
     g_object_set_data_full(G_OBJECT(self->image_widget),
                            "original-filepath",
                            g_strdup(filepath),
                            g_free);
 
-    // Copier l'image source vers out/working.png (écrase uniquement working.png)
+    
     GFile *srcf = g_file_new_for_path(filepath);
     GFile *dstf = g_file_new_for_path("out/working.png");
     GError *cpy_err = NULL;
@@ -118,13 +118,13 @@ static void load_image_from_path(OcrAppWindow *self, const gchar *filepath) {
     g_object_unref(srcf);
     g_object_unref(dstf);
 
-    // Afficher l'image de travail et définir current-filepath dessus
+    
     gtk_image_set_from_file(GTK_IMAGE(self->image_widget), "out/working.png");
     g_object_set_data_full(G_OBJECT(self->image_widget),
                            "current-filepath",
                            g_strdup("out/working.png"),
                            g_free);
-    // Réinitialiser l'état des opérations
+    
     g_object_set_data(G_OBJECT(self->image_widget), "last-op", NULL);
     g_object_set_data(G_OBJECT(self->image_widget), "auto-then-binarize", NULL);
 
@@ -297,7 +297,7 @@ static GdkPixbuf* scale_pixbuf_to_max(const GdkPixbuf *src, int max_w, int max_h
     int dh = (int)(sh * scale + 0.5);
     return gdk_pixbuf_scale_simple(src, dw, dh, GDK_INTERP_BILINEAR);
 }
-// Forward declarations to avoid implicit declarations
+
 static void binarize(const unsigned char *gray, unsigned char *bin, int w, int h);
 static int evaluate_angle_projection_x(const unsigned char *bin, int w, int h, double angle_deg);
 static int evaluate_angle_projection_y(const unsigned char *bin, int w, int h, double angle_deg);
@@ -374,17 +374,17 @@ static gdouble detect_grid_angle(const unsigned char *rgba, int w, int h) {
         if (score > best_score) { best_score = score; best_angle = angle_deg; use_vertical = (sx >= sy); }
     }
 
-    // Replace global refine with local searches to avoid 90° flips
+    
     double best_rot_local = 0.0;
     int best_score_local = best_score;
 
-    // Local around 0° for vertical lines (coarse)
+    
     for (double a = -15.0; a <= 15.0; a += 0.2) {
         int sx = evaluate_angle_projection_x(bin, w, h, a);
         if (sx > best_score_local) { best_score_local = sx; best_rot_local = a; }
     }
 
-    // Local around 90° for horizontal lines (coarse)
+    
     for (double a = 75.0; a <= 105.0; a += 0.2) {
         int sy = evaluate_angle_projection_y(bin, w, h, a);
         double rot = a - 90.0;
@@ -393,14 +393,14 @@ static gdouble detect_grid_angle(const unsigned char *rgba, int w, int h) {
         if (sy > best_score_local && fabs(rot) < fabs(best_rot_local)) { best_score_local = sy; best_rot_local = rot; }
     }
 
-    // Fine refinement around the best rotation found
+    
     double center = best_rot_local;
     double best_refined_rot = center;
     int best_refined_score = -1;
-    // Search ±2° around center at 0.05° steps
+    
     for (double da = -2.0; da <= 2.0; da += 0.05) {
         double test_rot = center + da;
-        // Choose projection function depending on proximity to 0 or 90
+        
         int score;
         if (fabs(test_rot) <= 30.0) {
             score = evaluate_angle_projection_x(bin, w, h, test_rot);
@@ -463,7 +463,7 @@ static int evaluate_angle_projection_x(const unsigned char *bin, int w, int h, d
     long long *proj = (long long*)calloc((size_t)proj_w, sizeof(long long));
     if (!proj) return 0;
 
-    int y0 = h/6, y1 = h - h/6; // éviter bords
+    int y0 = h/6, y1 = h - h/6; 
     int x0 = w/6, x1 = w - w/6;
     for (int y = y0; y < y1; ++y) {
         for (int x = x0; x < x1; ++x) {
@@ -474,12 +474,12 @@ static int evaluate_angle_projection_x(const unsigned char *bin, int w, int h, d
             int xri = (int)floor(xr + 0.5);
             int yri = (int)floor(yr + 0.5);
             if (xri >= 0 && xri < w && yri >= 0 && yri < h) {
-                proj[xri] += (bin[yri * w + xri] == 0) ? 1 : 0; // compte pixels sombres
+                proj[xri] += (bin[yri * w + xri] == 0) ? 1 : 0; 
             }
         }
     }
 
-    // score: variance + somme des différences locales pour favoriser pics nets
+    
     long long sum = 0;
     for (int i = 0; i < proj_w; ++i) sum += proj[i];
     double mean = (double)sum / proj_w;
@@ -507,7 +507,7 @@ static int evaluate_angle_projection_y(const unsigned char *bin, int w, int h, d
     long long *proj = (long long*)calloc((size_t)proj_h, sizeof(long long));
     if (!proj) return 0;
 
-    int y0 = h/6, y1 = h - h/6; // éviter bords
+    int y0 = h/6, y1 = h - h/6; 
     int x0 = w/6, x1 = w - w/6;
     for (int y = y0; y < y1; ++y) {
         for (int x = x0; x < x1; ++x) {
@@ -588,7 +588,7 @@ static void rotate_image(OcrAppWindow *self, gdouble angle_degrees) {
     update_status_label(self, msg);
     g_free(msg);
 
-    // S'assurer que out/ existe et écraser l'image de travail unique
+    
     if (!g_file_test("out", G_FILE_TEST_IS_DIR)) {
         g_mkdir_with_parents("out", 0755);
     }
@@ -606,32 +606,32 @@ static void rotate_image(OcrAppWindow *self, gdouble angle_degrees) {
         update_status_label(self, okmsg);
         g_free(okmsg);
     }
-    // Mettre à jour le chemin courant vers l'image de travail
+    
     g_object_set_data_full(G_OBJECT(self->image_widget),
                            "current-filepath",
                            g_strdup(outpath),
                            g_free);
 }
 
-// Manual rotation disabled per request
-// static void on_rotate_clicked(GtkButton *button, gpointer user_data) {
-//     (void)button;
-//     OcrAppWindow *self = OCR_APP_WINDOW(user_data);
-//     gdouble angle = gtk_spin_button_get_value(GTK_SPIN_BUTTON(self->angle_spin));
-//     rotate_image(self, angle);
-// }
+
+
+
+
+
+
+
 
 static void on_auto_rotate_clicked(GtkButton *button, gpointer user_data) {
     (void)button;
     OcrAppWindow *self = OCR_APP_WINDOW(user_data);
 
-    // Si l'image a été auto puis binarisée, Auto devient no-op
+    
     if (g_object_get_data(G_OBJECT(self->image_widget), "auto-then-binarize") != NULL) {
         update_status_label(self, "Auto ignoré: image déjà binarisée après Auto.");
         return;
     }
 
-    // Repartir de l'image originale pour appliquer Auto
+    
     const gchar *orig_path = g_object_get_data(G_OBJECT(self->image_widget), "original-filepath");
     if (orig_path && *orig_path) {
         load_image_from_path(self, orig_path);
@@ -650,11 +650,11 @@ static void on_auto_rotate_clicked(GtkButton *button, gpointer user_data) {
         return;
     }
 
-    // Restart at 0 and use fixed angles by name
+    
     gdouble detected_angle = 0.0;
     free(src_rgba);
 
-    // Classification selon les premières lettres du nom de fichier original
+    
     const gchar *orig_for_class = g_object_get_data(G_OBJECT(self->image_widget), "original-filepath");
     gchar *base = orig_for_class ? g_path_get_basename(orig_for_class) : NULL;
     gchar *lower = base ? g_ascii_strdown(base, -1) : NULL;
@@ -662,21 +662,21 @@ static void on_auto_rotate_clicked(GtkButton *button, gpointer user_data) {
     gdouble final_angle = detected_angle;
     if (lower) {
         if (g_str_has_prefix(lower, "medium")) {
-            // Medium: force 332° (i.e., -28°), per request
+            
             final_angle = 335.0;
         } else if (g_str_has_prefix(lower, "hard")) {
-            // Hard: force 0°
+            
             final_angle = 0.0;
         } else {
-            // Default/easy: force 0°
+            
             final_angle = 0.0;
         }
     }
 
     if (final_angle > 180.0) final_angle = fmod(final_angle, 360.0);
-    if (final_angle > 180.0) final_angle -= 360.0; // map to [-180,180]
+    if (final_angle > 180.0) final_angle -= 360.0; 
 
-    // Manual rotation disabled; do not adjust by last-manual-angle
+    
     gdouble last_manual = 0.0;
 
     gchar *detect_msg = g_strdup_printf("Auto: %.2f° (nom: %s, manuel: %.2f°)", final_angle, lower ? lower : "(inconnu)", last_manual);
@@ -685,20 +685,20 @@ static void on_auto_rotate_clicked(GtkButton *button, gpointer user_data) {
     g_free(lower);
     g_free(base);
 
-    // Manual spin removed
+    
     rotate_image(self, final_angle);
 
-    // No manual angle state anymore
+    
     g_object_set_data(G_OBJECT(self->image_widget), "last-op", "auto");
 
-    // Toutes les opérations s'appliquent uniquement sur out/working.png
+    
 }
 
 static void on_binarize_clicked(GtkButton *button, gpointer user_data) {
     (void)button;
     OcrAppWindow *self = OCR_APP_WINDOW(user_data);
 
-    // Si la dernière opération était Auto, marquer auto-then-binarize
+    
     const gchar *last = g_object_get_data(G_OBJECT(self->image_widget), "last-op");
     if (last && g_strcmp0(last, "auto") == 0) {
         g_object_set_data(G_OBJECT(self->image_widget), "auto-then-binarize", (gpointer)1);
@@ -725,7 +725,7 @@ static void on_binarize_clicked(GtkButton *button, gpointer user_data) {
         for (int x = 0; x < w; ++x) {
             const unsigned char *p = rgba + ((size_t)y * w + x) * 4;
             unsigned int r = p[0], g = p[1], b = p[2], a = p[3];
-            // Apply same alpha handling and luma as binary/binary.c
+            
             r = (r * a + 255u * (255u - a)) / 255u;
             g = (g * a + 255u * (255u - a)) / 255u;
             b = (b * a + 255u * (255u - a)) / 255u;
@@ -761,7 +761,7 @@ static void on_binarize_clicked(GtkButton *button, gpointer user_data) {
         gchar *msg = g_strdup_printf("Binarisé: %s", outpath);
         update_status_label(self, msg);
         g_free(msg);
-        // Afficher l'image binarisée dans l'interface (redimensionnée si nécessaire)
+        
         GdkPixbuf *scaled = scale_pixbuf_to_max(bp, 1400, 1000);
         if (scaled) {
             gtk_image_set_from_pixbuf(GTK_IMAGE(self->image_widget), scaled);
@@ -770,7 +770,7 @@ static void on_binarize_clicked(GtkButton *button, gpointer user_data) {
             gtk_image_set_from_pixbuf(GTK_IMAGE(self->image_widget), bp);
         }
         center_scroller(self->scroller);
-        // Mettre à jour le chemin courant sur l'image binarisée
+        
         g_object_set_data_full(G_OBJECT(self->image_widget),
                                "current-filepath",
                                g_strdup(outpath),
@@ -787,16 +787,16 @@ static void on_extract_clicked(GtkButton *button, gpointer user_data) {
     (void)button;
     OcrAppWindow *self = OCR_APP_WINDOW(user_data);
     update_status_label(self, "Extraction en cours…");
-    // TODO: intégrer le pipeline d'extraction (découpage de grille, lettres)
-    // Pour l'instant, action placeholder.
+    
+    
 }
 
 static void on_resolve_clicked(GtkButton *button, gpointer user_data) {
     (void)button;
     OcrAppWindow *self = OCR_APP_WINDOW(user_data);
     update_status_label(self, "Résolution en cours…");
-    // TODO: appeler le solver sur la grille extraite
-    // Action placeholder en attendant l’intégration.
+    
+    
 }
 
 static void on_enter_clicked(GtkButton *button, gpointer user_data) {
@@ -829,7 +829,7 @@ static GtkWidget* build_header_bar(OcrAppWindow *self) {
     g_signal_connect(bin_btn, "clicked", G_CALLBACK(on_binarize_clicked), self);
     gtk_header_bar_pack_start(GTK_HEADER_BAR(header_bar), bin_btn);
 
-    // Nouveaux boutons : Extraction et Résolution
+    
     GtkWidget *extract_btn = gtk_button_new_with_label("Extraction");
     gtk_widget_set_tooltip_text(extract_btn, "Extraire la grille et les lettres");
     gtk_style_context_add_class(gtk_widget_get_style_context(extract_btn), "accent-btn");
@@ -842,7 +842,7 @@ static GtkWidget* build_header_bar(OcrAppWindow *self) {
     g_signal_connect(resolve_btn, "clicked", G_CALLBACK(on_resolve_clicked), self);
     gtk_header_bar_pack_end(GTK_HEADER_BAR(header_bar), resolve_btn);
 
-    // Manual rotation UI removed per request
+    
     self->angle_spin = NULL;
     return header_bar;
 }

@@ -36,13 +36,12 @@ def load_font(size):
 
 
 def render_letter(letter, size, font):
-    img = Image.new("L", (size, size), color=255)  # white background
+    img = Image.new("L", (size, size), color=255)
     draw = ImageDraw.Draw(img)
     try:
         bbox = draw.textbbox((0, 0), letter, font=font)
         w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
     except AttributeError:
-        # Pillow sans textbbox/textsize: fallback approximatif
         mask = Image.new("L", (size, size))
         d2 = ImageDraw.Draw(mask)
         d2.text((0, 0), letter, font=font, fill=255)
@@ -53,9 +52,9 @@ def render_letter(letter, size, font):
             w, h = size // 2, size // 2
     x = (size - w) // 2
     y = (size - h) // 2
-    draw.text((x, y), letter, font=font, fill=0)  # black text
+    draw.text((x, y), letter, font=font, fill=0)
     arr = np.array(img, dtype=np.uint8)
-    arr = (arr < 128).astype(np.uint8) * 255  # binarise
+    arr = (arr < 128).astype(np.uint8) * 255
     return Image.fromarray(arr, mode="L")
 
 

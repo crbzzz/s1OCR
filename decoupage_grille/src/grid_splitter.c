@@ -51,7 +51,7 @@ static unsigned char *normalize_letter(const unsigned char *src, int w, int h)
     if (!dst) return NULL;
     memset(dst, 255, tw * th);
 
-    // trim fully-black grid borders
+    
     const double border_ratio = 0.98;
     int top = 0;
     while (top < h) {

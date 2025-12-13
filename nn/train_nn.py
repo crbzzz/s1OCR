@@ -52,7 +52,7 @@ def load_dataset(data_root: Path, threshold: float):
             elif tile_size != (w, h):
                 raise ValueError(f"Toutes les images doivent avoir la même taille. {png} est {w}x{h}, attendu {tile_size}")
             arr = np.array(img, dtype=np.float32) / 255.0
-            arr = (arr > threshold).astype(np.float32)  # binaire 0/1
+            arr = (arr > threshold).astype(np.float32)
             xs.append(arr.flatten())
             y = np.zeros(len(LETTERS), dtype=np.float32)
             y[idx] = 1.0
@@ -78,26 +78,22 @@ def train(X, Y, hidden_dim, epochs, lr):
     b2 = np.zeros((output_dim,), dtype=np.float32)
 
     for epoch in range(1, epochs + 1):
-        # Forward
-        Z1 = X @ W1.T + b1  # (N, hidden)
+        Z1 = X @ W1.T + b1
         A1 = sigmoid(Z1)
-        Z2 = A1 @ W2.T + b2  # (N, output)
+        Z2 = A1 @ W2.T + b2
         A2 = sigmoid(Z2)
 
-        # BCE moyenne
         eps = 1e-7
         loss = -np.mean(Y * np.log(A2 + eps) + (1.0 - Y) * np.log(1.0 - A2 + eps))
 
-        # Backward (BCE + sigmoid)
-        dZ2 = (A2 - Y) / n_samples  # (N, output)
-        dW2 = dZ2.T @ A1            # (output, hidden)
-        db2 = dZ2.sum(axis=0)       # (output,)
-        dA1 = dZ2 @ W2              # (N, hidden)
-        dZ1 = dA1 * A1 * (1.0 - A1) # (N, hidden)
-        dW1 = dZ1.T @ X             # (hidden, input)
-        db1 = dZ1.sum(axis=0)       # (hidden,)
+        dZ2 = (A2 - Y) / n_samples
+        dW2 = dZ2.T @ A1
+        db2 = dZ2.sum(axis=0)
+        dA1 = dZ2 @ W2
+        dZ1 = dA1 * A1 * (1.0 - A1)
+        dW1 = dZ1.T @ X
+        db1 = dZ1.sum(axis=0)
 
-        # Update
         W1 -= lr * dW1
         b1 -= lr * db1
         W2 -= lr * dW2

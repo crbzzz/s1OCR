@@ -109,7 +109,6 @@ def apply_grads(params, grads, lr):
         params["W2"][0][c] -= lr * grads["dW2"][0][c]
     params["b2"][0] -= lr * grads["db2"][0]
 
-# TESTS
 
 def train_xor(epochs, lr=0.5):
     X = [[0,0], [0,1], [1,0], [1,1]]
@@ -133,7 +132,6 @@ def predict_value(x, params):
     y_hat, _ = forward(x, params)
     return y_hat[0]
 
-# EXEC DU NN
 
 if __name__ == "__main__":
     try:

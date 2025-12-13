@@ -21,10 +21,10 @@ typedef struct {
     int input_dim;
     int hidden_dim;
     int output_dim;
-    float *W1; /* [hidden][input] */
-    float *b1; /* [hidden] */
-    float *W2; /* [output][hidden] */
-    float *b2; /* [output] */
+    float *W1; 
+    float *b1; 
+    float *W2; 
+    float *b2; 
 } NNOCRModel;
 
 typedef struct {
