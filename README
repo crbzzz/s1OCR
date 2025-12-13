@@ -30,10 +30,13 @@ Réseau Neuronal :
     gcc nn_c.c -o nn_c -lm
     ./nn_c
 
+    Entrainement:
+    python3 train_nn.py --data dataset/train --lr 0.1 --hidden 64 --out weights.txt
+
 1. Entraine un réseau neuronal crée pour la fonction XOR
 2. Affiche les résultats de l'entrainement dans la console pour chaque sortie
 
-Rendu binaire : 
+RENDU binaire : 
 
     gcc binary.c -o binary -lm
     ./binary "NOM IMAGE"

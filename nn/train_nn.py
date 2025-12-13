@@ -126,7 +126,7 @@ def parse_args():
     p = argparse.ArgumentParser(description="Entraîner un MLP OCR lettres et exporter weights.txt compatible C.")
     p.add_argument("--data", default="dataset/train", help="Dossier racine du dataset (A/..Z/).")
     p.add_argument("--hidden", type=int, default=64, help="Taille couche cachée.")
-    p.add_argument("--epochs", type=int, default=800, help="Nombre d'epochs.")
+    p.add_argument("--epochs", type=int, default=2000, help="Nombre d'epochs (défaut 2000 pour un entraînement plus long).")
     p.add_argument("--lr", type=float, default=0.1, help="Learning rate.")
     p.add_argument("--threshold", type=float, default=0.5, help="Seuil de binarisation (0..1).")
     p.add_argument("--out", default="weights.txt", help="Chemin du fichier de poids généré.")
@@ -149,4 +149,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -47,6 +47,27 @@ static NNOCRModel g_model = {0};
 static int g_tile_w = 0;
 static int g_tile_h = 0;
 
+static int infer_tile_dims(int input_dim, int *out_w, int *out_h)
+{
+    if (input_dim <= 0) return 0;
+    int root = (int)(sqrt((double)input_dim) + 0.5);
+    if (root * root == input_dim) {
+        *out_w = root;
+        *out_h = root;
+        return 1;
+    }
+    for (int h = 1; h <= root + 1; ++h) {
+        if (input_dim % h == 0) {
+            *out_h = h;
+            *out_w = input_dim / h;
+            return 1;
+        }
+    }
+    *out_w = input_dim;
+    *out_h = 1;
+    return 1;
+}
+
 static int cmp_word_dir(const void *a, const void *b) {
     const WordDir *da = (const WordDir *)a;
     const WordDir *db = (const WordDir *)b;
@@ -127,6 +148,11 @@ static int load_weights(const char *weights_path) {
     }
 
     fclose(f);
+    if (!infer_tile_dims(g_model.input_dim, &g_tile_w, &g_tile_h)) {
+        fprintf(stderr, "Cannot infer tile dimensions from weights\n");
+        free_model(&g_model);
+        return 0;
+    }
     return 1;
 
 fail:
@@ -136,38 +162,83 @@ fail:
 }
 
 static float *load_image_vector(const char *path, int expected_len, int *out_len) {
+    (void)expected_len;
     int w = 0, h = 0, ch = 0;
     unsigned char *img = stbi_load(path, &w, &h, &ch, 1);
     if (!img) {
         fprintf(stderr, "Failed to load %s\n", path);
         return NULL;
     }
-    int len = w * h;
-    if (expected_len > 0 && len != expected_len) {
-        fprintf(stderr, "Dimension mismatch for %s: got %d, expected %d\n", path, len, expected_len);
-        stbi_image_free(img);
-        return NULL;
-    }
-
-    float *vec = (float *)malloc(sizeof(float) * (size_t)len);
+    size_t len = (size_t)g_tile_w * (size_t)g_tile_h;
+    float *vec = (float *)malloc(sizeof(float) * len);
     if (!vec) {
-        fprintf(stderr, "Memory allocation failed for image vector %s\n", path);
         stbi_image_free(img);
         return NULL;
     }
-    for (int i = 0; i < len; ++i) {
-        vec[i] = (img[i] > 127) ? 1.0f : 0.0f;
+    for (size_t i = 0; i < len; ++i) vec[i] = 1.0f;
+
+    int x0 = w, y0 = h, x1 = -1, y1 = -1;
+    int dark = 0;
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            unsigned char v = img[y * w + x];
+            if (v < 200) {
+                if (x < x0) x0 = x;
+                if (x > x1) x1 = x;
+                if (y < y0) y0 = y;
+                if (y > y1) y1 = y;
+                dark++;
+            }
+        }
+    }
+    if (x1 < x0 || y1 < y0) {
+        x0 = 0; y0 = 0; x1 = w - 1; y1 = h - 1;
+    }
+    int bw = x1 - x0 + 1;
+    int bh = y1 - y0 + 1;
+    if (bw < 1) bw = 1;
+    if (bh < 1) bh = 1;
+
+    double avail_w = (double)(g_tile_w - 2);
+    double avail_h = (double)(g_tile_h - 2);
+    if (avail_w < 1.0) avail_w = (double)g_tile_w;
+    if (avail_h < 1.0) avail_h = (double)g_tile_h;
+    double scale = fmin(avail_w / (double)bw, avail_h / (double)bh);
+    if (scale <= 0.0) scale = 1.0;
+    int dw = (int)(bw * scale + 0.5);
+    int dh = (int)(bh * scale + 0.5);
+    if (dw < 1) dw = 1;
+    if (dh < 1) dh = 1;
+    if (dw > g_tile_w) dw = g_tile_w;
+    if (dh > g_tile_h) dh = g_tile_h;
+
+    int offx = (g_tile_w - dw) / 2;
+    int offy = (g_tile_h - dh) / 2;
+    int invert = (dark > (w * h) / 2);
+
+    for (int ty = 0; ty < dh; ++ty) {
+        double ry = (dh <= 1) ? 0.0 : (double)ty / (double)(dh - 1);
+        int sy = y0 + (int)round(ry * (double)(bh - 1));
+        if (sy < y0) sy = y0;
+        if (sy > y1) sy = y1;
+        for (int tx = 0; tx < dw; ++tx) {
+            double rx = (dw <= 1) ? 0.0 : (double)tx / (double)(dw - 1);
+            int sx = x0 + (int)round(rx * (double)(bw - 1));
+            if (sx < x0) sx = x0;
+            if (sx > x1) sx = x1;
+            unsigned char v = img[sy * w + sx];
+            int is_letter = invert ? (v > 200) : (v < 200);
+            float out = is_letter ? 0.0f : 1.0f;
+            int dx = offx + tx;
+            int dy = offy + ty;
+            if (dx >= 0 && dx < g_tile_w && dy >= 0 && dy < g_tile_h) {
+                vec[dy * g_tile_w + dx] = out;
+            }
+        }
     }
 
-    if (g_tile_w == 0 && g_tile_h == 0 && len == g_model.input_dim) {
-        g_tile_w = w;
-        g_tile_h = h;
-    }
-
-    if (out_len) {
-        *out_len = len;
-    }
     stbi_image_free(img);
+    if (out_len) *out_len = (int)len;
     return vec;
 }
 
@@ -470,34 +541,7 @@ static WordLetterFile *collect_word_letters(const char *dir_path, size_t *out_co
 }
 
 static float *load_word_letter_vector(const char *path) {
-    if (g_tile_w <= 0 || g_tile_h <= 0) {
-        return NULL;
-    }
-    int w = 0, h = 0, ch = 0;
-    unsigned char *img = stbi_load(path, &w, &h, &ch, 1);
-    if (!img || w <= 0 || h <= 0) {
-        if (img) stbi_image_free(img);
-        return NULL;
-    }
-    float *vec = (float *)malloc(sizeof(float) * (size_t)g_tile_w * (size_t)g_tile_h);
-    if (!vec) {
-        stbi_image_free(img);
-        return NULL;
-    }
-    for (int ty = 0; ty < g_tile_h; ++ty) {
-        int sy = (int)((double)ty * h / g_tile_h);
-        if (sy < 0) sy = 0;
-        if (sy >= h) sy = h - 1;
-        for (int tx = 0; tx < g_tile_w; ++tx) {
-            int sx = (int)((double)tx * w / g_tile_w);
-            if (sx < 0) sx = 0;
-            if (sx >= w) sx = w - 1;
-            unsigned char v = img[sy * w + sx];
-            vec[ty * g_tile_w + tx] = (v > 127) ? 1.0f : 0.0f;
-        }
-    }
-    stbi_image_free(img);
-    return vec;
+    return load_image_vector(path, g_model.input_dim, NULL);
 }
 
 static char *recognize_word_from_dir(const char *dir_path) {

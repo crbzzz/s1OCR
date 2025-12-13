@@ -72,6 +72,80 @@ static void assurer_repertoire(const char *p) {
     MKDIR(p);
 }
 
+#define WORD_TILE_SIZE 32
+#define WORD_TILE_MARGIN 2
+
+static unsigned char *normalize_letter_bitmap(const unsigned char *src, int w, int h)
+{
+    if (!src || w <= 0 || h <= 0) return NULL;
+
+    unsigned char *dst = malloc(WORD_TILE_SIZE * WORD_TILE_SIZE);
+    if (!dst) return NULL;
+    memset(dst, 255, WORD_TILE_SIZE * WORD_TILE_SIZE);
+
+    int x0 = w, y0 = h, x1 = -1, y1 = -1;
+    int dark = 0;
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            unsigned char v = src[y * w + x];
+            if (v < 200) {
+                if (x < x0) x0 = x;
+                if (x > x1) x1 = x;
+                if (y < y0) y0 = y;
+                if (y > y1) y1 = y;
+                dark++;
+            }
+        }
+    }
+    if (x1 < x0 || y1 < y0) {
+        x0 = 0; y0 = 0; x1 = w - 1; y1 = h - 1;
+    }
+
+    int bw = x1 - x0 + 1;
+    int bh = y1 - y0 + 1;
+    if (bw < 1) bw = 1;
+    if (bh < 1) bh = 1;
+
+    double avail_w = (double)(WORD_TILE_SIZE - WORD_TILE_MARGIN * 2);
+    double avail_h = (double)(WORD_TILE_SIZE - WORD_TILE_MARGIN * 2);
+    if (avail_w < 1.0) avail_w = (double)WORD_TILE_SIZE;
+    if (avail_h < 1.0) avail_h = (double)WORD_TILE_SIZE;
+    double scale = fmin(avail_w / (double)bw, avail_h / (double)bh);
+    if (scale <= 0.0) scale = 1.0;
+
+    int dw = (int)(bw * scale + 0.5);
+    int dh = (int)(bh * scale + 0.5);
+    if (dw < 1) dw = 1;
+    if (dh < 1) dh = 1;
+    if (dw > WORD_TILE_SIZE) dw = WORD_TILE_SIZE;
+    if (dh > WORD_TILE_SIZE) dh = WORD_TILE_SIZE;
+
+    int offx = (WORD_TILE_SIZE - dw) / 2;
+    int offy = (WORD_TILE_SIZE - dh) / 2;
+
+    for (int ty = 0; ty < dh; ++ty) {
+        double ry = (dh <= 1) ? 0.0 : (double)ty / (double)(dh - 1);
+        int sy = y0 + (int)round(ry * (double)(bh - 1));
+        if (sy < y0) sy = y0;
+        if (sy > y1) sy = y1;
+        for (int tx = 0; tx < dw; ++tx) {
+            double rx = (dw <= 1) ? 0.0 : (double)tx / (double)(dw - 1);
+            int sx = x0 + (int)round(rx * (double)(bw - 1));
+            if (sx < x0) sx = x0;
+            if (sx > x1) sx = x1;
+            unsigned char v = src[sy * w + sx];
+            unsigned char out = (v < 200) ? 0 : 255;
+            int dx = offx + tx;
+            int dy = offy + ty;
+            if (dx >= 0 && dx < WORD_TILE_SIZE && dy >= 0 && dy < WORD_TILE_SIZE) {
+                dst[dy * WORD_TILE_SIZE + dx] = out;
+            }
+        }
+    }
+
+    return dst;
+}
+
 static int detect_letter_rects(const unsigned char *word, int w, int h, Rect **letters_out)
 {
     *letters_out = NULL;
@@ -349,9 +423,15 @@ static void enregistrer_lettres(const unsigned char *word, int w, int h, int wor
             memcpy(glyph + yy * lw, word + (ly0 + yy) * w + lx0, lw);
         }
 
+        unsigned char *norm = normalize_letter_bitmap(glyph, lw, lh);
+        const unsigned char *outbuf = norm ? norm : glyph;
+        int ow = norm ? WORD_TILE_SIZE : lw;
+        int oh = norm ? WORD_TILE_SIZE : lh;
+
         char fn[512];
         snprintf(fn, sizeof(fn), "%s/%d.png", word_dir, i + 1);
-        sauver(fn, glyph, lw, lh);
+        sauver(fn, (unsigned char *)outbuf, ow, oh);
+        if (norm) free(norm);
         free(glyph);
     }
 
