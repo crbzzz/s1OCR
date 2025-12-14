@@ -36,6 +36,42 @@ typedef enum {
     PROFILE_MEDIUM
 } ProfileKind;
 
+static const char *profile_hard_words[] = {
+    "TINTINNABULATION",
+    "DEFENESTRATE",
+    "TERMAGANT",
+    "DISCOMBOBULATED",
+    "PANGLOSSIAN",
+    "SUSURRUS",
+    "OMPHALASKEPSIS",
+    "ERYTHRISMAL",
+    "ESTIVATE",
+    "PROPRIOCEPTION",
+    "PALINDROME",
+    "SPANGHEW",
+    "TATTERDEMALION",
+    "ENERVATINGMFRIPPET",
+    "PUSILLANIMOUS",
+    "PALIMPSEST",
+    "SYZYGY",
+    "CRYPTOMNESIA",
+    "SPELUNKING",
+    "TMESIS"
+};
+
+static const char *profile_medium_words[] = {
+    "TROPIC",
+    "BEACH",
+    "SUMMER",
+    "HOLIDAY",
+    "SAND",
+    "BALL",
+    "TAN",
+    "RELAX",
+    "SUN",
+    "FUN"
+};
+
 
 static FILE *open_solver_words(const char *mode)
 {
@@ -164,28 +200,7 @@ static void assurer_repertoire(const char *p) {
 #define WORD_TILE_SIZE 32
 #define WORD_TILE_MARGIN 2
 
-static const char *profile_hard_words[] = {
-    "TINTINNABULATION",
-    "DEFENESTRATE",
-    "TERMAGANT",
-    "DISCOMBOBULATED",
-    "PANGLOSSIAN",
-    "SUSURRUS",
-    "OMPHALASKEPSIS",
-    "ERYTHRISMAL",
-    "ESTIVATE",
-    "PROPRIOCEPTION",
-    "PALINDROME",
-    "SPANGHEW",
-    "TATTERDEMALION",
-    "ENERVATINGMFRIPPET",
-    "PUSILLANIMOUS",
-    "PALIMPSEST",
-    "SYZYGY",
-    "CRYPTOMNESIA",
-    "SPELUNKING",
-    "TMESIS"
-};
+
 
 static unsigned char *normalize_letter_bitmap(const unsigned char *src, int w, int h)
 {
@@ -791,18 +806,7 @@ int extraire_mots(const char *img_path, const char *out_dir) {
     return 0;
 }
 
-static const char *profile_medium_words[] = {
-    "TROPIC",
-    "BEACH",
-    "SUMMER",
-    "HOLIDAY",
-    "SAND",
-    "BALL",
-    "TAN",
-    "RELAX",
-    "SUN",
-    "FUN"
-};
+
 int main(int argc, char **argv) {
 
     if (argc < 3) {

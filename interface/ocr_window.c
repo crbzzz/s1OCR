@@ -87,7 +87,7 @@ static void load_app_css(GtkWidget *root) {
 static void update_status_label(OcrAppWindow *self, const gchar *message) {
     g_return_if_fail(OCR_IS_APP_WINDOW(self));
     if (!self->status_label) return;
-    gtk_label_set_text(GTK_LABEL(self->status_label), message ? message : "Aucune image charg+®e.");
+    gtk_label_set_text(GTK_LABEL(self->status_label), message ? message : "Aucune image charg+Â®e.");
 }
 
 
@@ -138,7 +138,7 @@ static gboolean ensure_directory_exists(const gchar *path) {
     if (g_mkdir_with_parents(path, 0755) == 0) {
         return TRUE;
     }
-    g_warning("Impossible de créer le dossier %s", path);
+    g_warning("Impossible de crÃ©er le dossier %s", path);
     return FALSE;
 }
 
@@ -163,6 +163,15 @@ static gchar *find_project_resource(const gchar *name) {
     }
     g_free(alt);
     return NULL;
+}
+
+static void cleanup_profile_copy(gchar **path_ref) {
+    if (!path_ref || !*path_ref) return;
+    if (*path_ref && **path_ref) {
+        g_remove(*path_ref);
+    }
+    g_free(*path_ref);
+    *path_ref = NULL;
 }
 
 static gboolean run_command_in_dir(OcrAppWindow *self,
@@ -194,7 +203,7 @@ static gboolean run_command_in_dir(OcrAppWindow *self,
     if (!ok) {
         gchar *msg = g_strdup_printf("%s : %s",
                                      label ? label : "Commande",
-                                     error ? error->message : "échec inconnu");
+                                     error ? error->message : "Ã©chec inconnu");
         update_status_label(self, msg);
         g_warning("%s : %s", label ? label : "Commande", msg);
         g_free(msg);
@@ -268,7 +277,7 @@ static void load_image_from_path(OcrAppWindow *self, const gchar *filepath) {
     g_object_set_data(G_OBJECT(self->image_widget), "auto-then-binarize", NULL);
 
     gchar *basename = g_path_get_basename(filepath);
-    gchar *message = g_strdup_printf("Image charg+®e : %s", basename ? basename : filepath);
+    gchar *message = g_strdup_printf("Image charg+Â®e : %s", basename ? basename : filepath);
     update_status_label(self, message);
     g_free(message);
     g_free(basename);
@@ -279,7 +288,7 @@ static void on_open_image(GtkButton *button, gpointer user_data) {
     OcrAppWindow *self = OCR_APP_WINDOW(user_data);
 
     GtkFileChooserNative *native = gtk_file_chooser_native_new(
-        "S+®lectionner une image",
+        "S+Â®lectionner une image",
         GTK_WINDOW(self),
         GTK_FILE_CHOOSER_ACTION_OPEN,
         "Ouvrir",
@@ -707,7 +716,7 @@ static void rotate_image(OcrAppWindow *self, gdouble angle_degrees) {
     GdkPixbuf *view = gdk_pixbuf_new(GDK_COLORSPACE_RGB, TRUE, 8, dw, dh);
     if (!view) {
         free(rot);
-        update_status_label(self, "Pb m+®moire.");
+        update_status_label(self, "Pb m+Â®moire.");
         return;
     }
 
@@ -723,7 +732,7 @@ static void rotate_image(OcrAppWindow *self, gdouble angle_degrees) {
 
     center_scroller(self->scroller);
 
-    gchar *msg = g_strdup_printf("Rotation faite : %.1f-¦ (affich+® %dx%d)", angle_degrees, dw, dh);
+    gchar *msg = g_strdup_printf("Rotation faite : %.1f-Â¦ (affich+Â® %dx%d)", angle_degrees, dw, dh);
     update_status_label(self, msg);
     g_free(msg);
 
@@ -735,13 +744,13 @@ static void rotate_image(OcrAppWindow *self, gdouble angle_degrees) {
     const gchar *outpath = "out/working.png";
     GError *save_err = NULL;
     if (!gdk_pixbuf_save(view, outpath, "png", &save_err, NULL)) {
-        gchar *emsg = g_strdup_printf("Rotation OK mais +®chec sauvegarde: %s",
+        gchar *emsg = g_strdup_printf("Rotation OK mais +Â®chec sauvegarde: %s",
                                       save_err ? save_err->message : "inconnue");
         update_status_label(self, emsg);
         g_clear_error(&save_err);
         g_free(emsg);
     } else {
-        gchar *okmsg = g_strdup_printf("Enregistr+®: %s", outpath);
+        gchar *okmsg = g_strdup_printf("Enregistr+Â®: %s", outpath);
         update_status_label(self, okmsg);
         g_free(okmsg);
     }
@@ -766,7 +775,7 @@ static void on_auto_rotate_clicked(GtkButton *button, gpointer user_data) {
 
     
     if (g_object_get_data(G_OBJECT(self->image_widget), "auto-then-binarize") != NULL) {
-        update_status_label(self, "Auto ignor+®: image d+®j+á binaris+®e apr+¿s Auto.");
+        update_status_label(self, "Auto ignor+Â®: image d+Â®j+Ã¡ binaris+Â®e apr+Â¿s Auto.");
         return;
     }
 
@@ -778,7 +787,7 @@ static void on_auto_rotate_clicked(GtkButton *button, gpointer user_data) {
 
     GdkPixbuf *pix = gtk_image_get_pixbuf(GTK_IMAGE(self->image_widget));
     if (!pix) {
-        update_status_label(self, "Aucune image charg+®e.");
+        update_status_label(self, "Aucune image charg+Â®e.");
         return;
     }
 
@@ -818,7 +827,7 @@ static void on_auto_rotate_clicked(GtkButton *button, gpointer user_data) {
     
     gdouble last_manual = 0.0;
 
-    gchar *detect_msg = g_strdup_printf("Auto: %.2f-¦ (nom: %s, manuel: %.2f-¦)", final_angle, lower ? lower : "(inconnu)", last_manual);
+    gchar *detect_msg = g_strdup_printf("Auto: %.2f-Â¦ (nom: %s, manuel: %.2f-Â¦)", final_angle, lower ? lower : "(inconnu)", last_manual);
     update_status_label(self, detect_msg);
     g_free(detect_msg);
     g_free(lower);
@@ -845,7 +854,7 @@ static void on_binarize_clicked(GtkButton *button, gpointer user_data) {
 
     GdkPixbuf *pix = gtk_image_get_pixbuf(GTK_IMAGE(self->image_widget));
     if (!pix) {
-        update_status_label(self, "Aucune image affich+®e.");
+        update_status_label(self, "Aucune image affich+Â®e.");
         return;
     }
 
@@ -858,7 +867,7 @@ static void on_binarize_clicked(GtkButton *button, gpointer user_data) {
 
     unsigned char *gray = (unsigned char*)malloc((size_t)w * h);
     unsigned char *bin = (unsigned char*)malloc((size_t)w * h);
-    if (!gray || !bin) { free(rgba); free(gray); free(bin); update_status_label(self, "M+®moire insuffisante."); return; }
+    if (!gray || !bin) { free(rgba); free(gray); free(bin); update_status_label(self, "M+Â®moire insuffisante."); return; }
 
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {
@@ -877,7 +886,7 @@ static void on_binarize_clicked(GtkButton *button, gpointer user_data) {
     binarize(gray, bin, w, h);
 
     GdkPixbuf *bp = gdk_pixbuf_new(GDK_COLORSPACE_RGB, TRUE, 8, w, h);
-    if (!bp) { free(rgba); free(gray); free(bin); update_status_label(self, "Erreur cr+®ation pixbuf."); return; }
+    if (!bp) { free(rgba); free(gray); free(bin); update_status_label(self, "Erreur cr+Â®ation pixbuf."); return; }
     guchar *dst = gdk_pixbuf_get_pixels(bp);
     int dstride = gdk_pixbuf_get_rowstride(bp);
     for (int y = 0; y < h; ++y) {
@@ -892,12 +901,12 @@ static void on_binarize_clicked(GtkButton *button, gpointer user_data) {
 
     GError *err = NULL;
     if (!gdk_pixbuf_save(bp, outpath, "png", &err, NULL)) {
-        gchar *emsg = g_strdup_printf("+ëchec sauvegarde binaire: %s", err ? err->message : "inconnue");
+        gchar *emsg = g_strdup_printf("+Ã«chec sauvegarde binaire: %s", err ? err->message : "inconnue");
         update_status_label(self, emsg);
         g_clear_error(&err);
         g_free(emsg);
     } else {
-        gchar *msg = g_strdup_printf("Binaris+®: %s", outpath);
+        gchar *msg = g_strdup_printf("Binaris+Â®: %s", outpath);
         update_status_label(self, msg);
         g_free(msg);
         
@@ -928,144 +937,145 @@ static void on_extract_clicked(GtkButton *button, gpointer user_data) {
 
     const gchar *current = g_object_get_data(G_OBJECT(self->image_widget), "current-filepath");
     if (!current || !*current) {
-        update_status_label(self, "Aucune image binarisée à traiter.");
+        update_status_label(self, "Aucune image binarisÃ©e Ã  traiter.");
         return;
     }
 
-    gchar *abs_input = build_absolute_path(current);
+    gchar *abs_input = NULL;
+    gchar *grid_root = NULL;
+    gchar *profile_input = NULL;
+    gchar *solver_grid_dir = NULL;
+    gchar *nn_grille = NULL;
+    gchar *nn_mots = NULL;
+    gchar *solver_grille = NULL;
+    gchar *solver_mots = NULL;
+    gboolean success = FALSE;
+
+    abs_input = build_absolute_path(current);
     if (!abs_input) {
         update_status_label(self, "Chemin d'image invalide.");
-        return;
+        goto cleanup;
     }
 
-    gchar *grid_root = build_absolute_path("nn/grid_letters");
+    grid_root = build_absolute_path("nn/grid_letters");
     if (!grid_root) {
         update_status_label(self, "Chemin nn/grid_letters invalide.");
-        g_free(abs_input);
-        return;
+        goto cleanup;
     }
 
     if (!ensure_directory_exists(grid_root)) {
-        update_status_label(self, "Impossible de préparer nn/grid_letters.");
-        g_free(abs_input);
-        g_free(grid_root);
-        return;
+        update_status_label(self, "Impossible de prÃ©parer nn/grid_letters.");
+        goto cleanup;
     }
     clear_directory_contents(grid_root);
 
     const gchar *original = g_object_get_data(G_OBJECT(self->image_widget), "original-filepath");
     PuzzleProfile profile = detect_profile_from_name(original ? original : current);
+    const gchar *input_for_tools = abs_input;
+    if (profile != PROFILE_EASY) {
+        gchar *dir = g_path_get_dirname(abs_input);
+        gchar *base = g_path_get_basename(original ? original : current);
+        if (!base || !*base) {
+            g_free(base);
+            base = g_strdup("working.png");
+        }
+        profile_input = g_build_filename(dir ? dir : ".", base, NULL);
+        g_free(dir);
+        g_free(base);
+        if (!profile_input) {
+            update_status_label(self, "Allocation echouee.");
+            goto cleanup;
+        }
+        GFile *src = g_file_new_for_path(abs_input);
+        GFile *dst = g_file_new_for_path(profile_input);
+        gboolean copied = g_file_copy(src, dst, G_FILE_COPY_OVERWRITE, NULL, NULL, NULL, NULL);
+        g_object_unref(src);
+        g_object_unref(dst);
+        if (!copied) {
+            update_status_label(self, "Impossible de preparer le fichier profil.");
+            goto cleanup;
+        }
+        input_for_tools = profile_input;
+    }
 
-    gchar *prep_msg = g_strdup_printf("Extraction (%s) : préparation…", profile_to_string(profile));
+    gchar *prep_msg = g_strdup_printf("Extraction (%s) : prÃ©paration.", profile_to_string(profile));
     update_status_label(self, prep_msg);
     g_free(prep_msg);
 
     gchar *make_args[] = { "make", NULL };
 
-    update_status_label(self, "Compilation découpage…");
-    if (!run_command_in_dir(self, "decoupage_grille", make_args, "Compilation découpage", NULL)) {
-        g_free(abs_input);
-        g_free(grid_root);
-        return;
+    update_status_label(self, "Compilation dÃ©coupage.");
+    if (!run_command_in_dir(self, "decoupage_grille", make_args, "Compilation dÃ©coupage", NULL)) {
+        goto cleanup;
     }
 
-    update_status_label(self, "Découpage de la grille…");
-    gchar *grid_args[] = { "./grid_splitter", abs_input, grid_root, NULL };
-    if (!run_command_in_dir(self, "decoupage_grille", grid_args, "Découpage grille", NULL)) {
-        g_free(abs_input);
-        g_free(grid_root);
-        return;
+    update_status_label(self, "DÃ©coupage de la grille.");
+    gchar *grid_args[] = { "./grid_splitter", (gchar *)input_for_tools, grid_root, NULL };
+    if (!run_command_in_dir(self, "decoupage_grille", grid_args, "DÃ©coupage grille", NULL)) {
+        goto cleanup;
     }
 
-    update_status_label(self, "Extraction des mots…");
-    gchar *word_args[] = { "./mots_extraction", abs_input, grid_root, NULL };
+    update_status_label(self, "Extraction des mots.");
+    gchar *word_args[] = { "./mots_extraction", (gchar *)input_for_tools, grid_root, NULL };
     if (!run_command_in_dir(self, "decoupage_grille", word_args, "Extraction mots", NULL)) {
-        g_free(abs_input);
-        g_free(grid_root);
-        return;
+        goto cleanup;
     }
 
     if (profile != PROFILE_EASY) {
-        update_status_label(self, "Extraction spéciale terminée. Cliquez sur Résolution pour continuer.");
-        g_free(abs_input);
-        g_free(grid_root);
-        return;
+        update_status_label(self, "Extraction spÃ©ciale terminÃ©e. Cliquez sur RÃ©solution pour continuer.");
+        success = TRUE;
+        goto cleanup;
     }
 
-    update_status_label(self, "Compilation du réseau…");
+    update_status_label(self, "Compilation du rÃ©seau.");
     if (!run_command_in_dir(self, "nn", make_args, "Compilation OCR", NULL)) {
-        g_free(abs_input);
-        g_free(grid_root);
-        return;
+        goto cleanup;
     }
 
-    update_status_label(self, "Reconnaissance des lettres…");
+    update_status_label(self, "Reconnaissance des lettres.");
     gchar *ocr_args[] = { "./ocr_grid", NULL };
     if (!run_command_in_dir(self, "nn", ocr_args, "Reconnaissance OCR", NULL)) {
-        g_free(abs_input);
-        g_free(grid_root);
-        return;
+        goto cleanup;
     }
 
-    gchar *solver_grid_dir = build_absolute_path("solver/grid");
+    solver_grid_dir = build_absolute_path("solver/grid");
     if (!solver_grid_dir || !ensure_directory_exists(solver_grid_dir)) {
-        update_status_label(self, "Impossible de préparer solver/grid.");
-        g_free(abs_input);
-        g_free(grid_root);
-        g_free(solver_grid_dir);
-        return;
+        update_status_label(self, "Impossible de prÃ©parer solver/grid.");
+        goto cleanup;
     }
 
-    gchar *nn_grille = build_absolute_path("nn/grille.txt");
-    gchar *nn_mots = build_absolute_path("nn/mots.txt");
-    gchar *solver_grille = g_build_filename(solver_grid_dir, "sample_grid.txt", NULL);
-    gchar *solver_mots = g_build_filename(solver_grid_dir, "words.txt", NULL);
+    nn_grille = build_absolute_path("nn/grille.txt");
+    nn_mots = build_absolute_path("nn/mots.txt");
+    solver_grille = g_build_filename(solver_grid_dir, "sample_grid.txt", NULL);
+    solver_mots = g_build_filename(solver_grid_dir, "words.txt", NULL);
 
     if (!nn_grille || !g_file_test(nn_grille, G_FILE_TEST_EXISTS) ||
         !nn_mots || !g_file_test(nn_mots, G_FILE_TEST_EXISTS)) {
-        update_status_label(self, "OCR terminé mais fichiers nn/grille.txt ou nn/mots.txt introuvables.");
-        g_free(abs_input);
-        g_free(grid_root);
-        g_free(solver_grid_dir);
-        g_free(nn_grille);
-        g_free(nn_mots);
-        g_free(solver_grille);
-        g_free(solver_mots);
-        return;
+        update_status_label(self, "OCR terminÃ© mais fichiers nn/grille.txt ou nn/mots.txt introuvables.");
+        goto cleanup;
     }
 
     GError *copy_err = NULL;
     if (!copy_file_overwrite(nn_grille, solver_grille, &copy_err)) {
-        gchar *msg = g_strdup_printf("Copie grille échouée : %s", copy_err ? copy_err->message : "erreur inconnue");
+        gchar *msg = g_strdup_printf("Copie grille Ã©chouÃ©e : %s", copy_err ? copy_err->message : "erreur inconnue");
         update_status_label(self, msg);
         g_free(msg);
         g_clear_error(&copy_err);
-        g_free(abs_input);
-        g_free(grid_root);
-        g_free(solver_grid_dir);
-        g_free(nn_grille);
-        g_free(nn_mots);
-        g_free(solver_grille);
-        g_free(solver_mots);
-        return;
+        goto cleanup;
     }
     if (!copy_file_overwrite(nn_mots, solver_mots, &copy_err)) {
-        gchar *msg = g_strdup_printf("Copie mots échouée : %s", copy_err ? copy_err->message : "erreur inconnue");
+        gchar *msg = g_strdup_printf("Copie mots Ã©chouÃ©e : %s", copy_err ? copy_err->message : "erreur inconnue");
         update_status_label(self, msg);
         g_free(msg);
         g_clear_error(&copy_err);
-        g_free(abs_input);
-        g_free(grid_root);
-        g_free(solver_grid_dir);
-        g_free(nn_grille);
-        g_free(nn_mots);
-        g_free(solver_grille);
-        g_free(solver_mots);
-        return;
+        goto cleanup;
     }
 
-    update_status_label(self, "Extraction terminée : fichiers prêts pour le solver.");
+    update_status_label(self, "Extraction terminÃ©e : fichiers prÃªts pour le solver.");
+    success = TRUE;
 
+cleanup:
+    cleanup_profile_copy(&profile_input);
     g_free(abs_input);
     g_free(grid_root);
     g_free(solver_grid_dir);
@@ -1073,7 +1083,10 @@ static void on_extract_clicked(GtkButton *button, gpointer user_data) {
     g_free(nn_mots);
     g_free(solver_grille);
     g_free(solver_mots);
+    if (!success)
+        return;
 }
+
 static void on_resolve_clicked(GtkButton *button, gpointer user_data) {
     (void)button;
     OcrAppWindow *self = OCR_APP_WINDOW(user_data);
@@ -1129,7 +1142,7 @@ static void on_enter_clicked(GtkButton *button, gpointer user_data) {
 static GtkWidget* build_header_bar(OcrAppWindow *self) {
     GtkWidget *header_bar = gtk_header_bar_new();
     gtk_header_bar_set_title(GTK_HEADER_BAR(header_bar), "Projet OCR");
-    gtk_header_bar_set_subtitle(GTK_HEADER_BAR(header_bar), "S+®lectionner une image");
+    gtk_header_bar_set_subtitle(GTK_HEADER_BAR(header_bar), "S+Â®lectionner une image");
     gtk_header_bar_set_show_close_button(GTK_HEADER_BAR(header_bar), TRUE);
 
     GtkWidget *open_button = gtk_button_new_from_icon_name("document-open", GTK_ICON_SIZE_BUTTON);
@@ -1157,8 +1170,8 @@ static GtkWidget* build_header_bar(OcrAppWindow *self) {
     g_signal_connect(extract_btn, "clicked", G_CALLBACK(on_extract_clicked), self);
     gtk_header_bar_pack_start(GTK_HEADER_BAR(header_bar), extract_btn);
 
-    GtkWidget *resolve_btn = gtk_button_new_with_label("R+®solution");
-    gtk_widget_set_tooltip_text(resolve_btn, "R+®soudre la grille avec le solver");
+    GtkWidget *resolve_btn = gtk_button_new_with_label("R+Â®solution");
+    gtk_widget_set_tooltip_text(resolve_btn, "R+Â®soudre la grille avec le solver");
     gtk_style_context_add_class(gtk_widget_get_style_context(resolve_btn), "accent-btn");
     g_signal_connect(resolve_btn, "clicked", G_CALLBACK(on_resolve_clicked), self);
     gtk_header_bar_pack_end(GTK_HEADER_BAR(header_bar), resolve_btn);
@@ -1251,7 +1264,7 @@ static GtkWidget* build_home_page(OcrAppWindow *self) {
     gtk_widget_set_halign(subtitle, GTK_ALIGN_CENTER);
 
     GtkWidget *enter_btn = gtk_button_new_with_label("Entrer");
-    gtk_widget_set_tooltip_text(enter_btn, "Acc+®der +á lÔÇÖinterface");
+    gtk_widget_set_tooltip_text(enter_btn, "Acc+Â®der +Ã¡ lÃ”Ã‡Ã–interface");
     gtk_style_context_add_class(gtk_widget_get_style_context(enter_btn), "hero-enter");
     g_signal_connect(enter_btn, "clicked", G_CALLBACK(on_enter_clicked), self);
 

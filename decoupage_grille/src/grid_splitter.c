@@ -49,6 +49,8 @@ typedef enum {
     PROFILE_MEDIUM
 } ProfileKind;
 
+static const char *profile_hard_grid[];
+static const char *profile_medium_grid[];
 
 
 static FILE *open_solver_file(const char *rel, const char *mode)
