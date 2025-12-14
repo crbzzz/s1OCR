@@ -931,6 +931,43 @@ static void on_binarize_clicked(GtkButton *button, gpointer user_data) {
     free(bin);
 }
 
+static void on_train_clicked(GtkButton *button, gpointer user_data)
+{
+    (void)button;
+    OcrAppWindow *self = OCR_APP_WINDOW(user_data);
+
+    gchar *make_args[] = { "make", "train_nn", NULL };
+    update_status_label(self, "Compilation de l'entrainement...");
+    if (!run_command_in_dir(self, "nn", make_args, "Compilation train_nn", NULL)) {
+        return;
+    }
+
+    update_status_label(self, "Entrainement en cours...");
+    gchar *train_args[] = {
+        "./train_nn",
+        "--data", "dataset/train",
+        "--epochs", "2000",
+        "--lr", "0.1",
+        "--hidden", "96",
+        "--out", "weights.txt",
+        NULL
+    };
+    gchar *train_output = NULL;
+    if (!run_command_in_dir(self, "nn", train_args, "Entrainement", &train_output)) {
+        g_free(train_output);
+        return;
+    }
+
+    if (train_output && *train_output) {
+        gchar *msg = g_strdup_printf("Entrainement termine :\n%s", train_output);
+        update_status_label(self, msg);
+        g_free(msg);
+    } else {
+        update_status_label(self, "Entrainement termine.");
+    }
+    g_free(train_output);
+}
+
 static void on_extract_clicked(GtkButton *button, gpointer user_data) {
     (void)button;
     OcrAppWindow *self = OCR_APP_WINDOW(user_data);
@@ -1171,6 +1208,12 @@ static GtkWidget* build_header_bar(OcrAppWindow *self) {
     g_signal_connect(bin_btn, "clicked", G_CALLBACK(on_binarize_clicked), self);
     gtk_header_bar_pack_start(GTK_HEADER_BAR(header_bar), bin_btn);
 
+    GtkWidget *train_btn = gtk_button_new_with_label("Entrainement");
+    gtk_widget_set_tooltip_text(train_btn, "Lancer l entrainement du reseau");
+    gtk_style_context_add_class(gtk_widget_get_style_context(train_btn), "accent-btn");
+    g_signal_connect(train_btn, "clicked", G_CALLBACK(on_train_clicked), self);
+    gtk_header_bar_pack_start(GTK_HEADER_BAR(header_bar), train_btn);
+
     
     GtkWidget *extract_btn = gtk_button_new_with_label("Extraction");
     gtk_widget_set_tooltip_text(extract_btn, "Extraire la grille et les lettres");
@@ -1323,6 +1366,3 @@ OcrAppWindow *ocr_app_window_new(GtkApplication *application) {
     g_return_val_if_fail(GTK_IS_APPLICATION(application), NULL);
     return g_object_new(OCR_TYPE_APP_WINDOW, "application", application, NULL);
 }
-
-
-
