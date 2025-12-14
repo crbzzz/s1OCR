@@ -950,6 +950,7 @@ static void on_extract_clicked(GtkButton *button, gpointer user_data) {
     gchar *solver_grille = NULL;
     gchar *solver_mots = NULL;
     gboolean success = FALSE;
+    gchar *grid_input_dir = NULL;
 
     abs_input = build_absolute_path(current);
     if (!abs_input) {
@@ -998,6 +999,12 @@ static void on_extract_clicked(GtkButton *button, gpointer user_data) {
         input_for_tools = profile_input;
     }
 
+    grid_input_dir = g_path_get_dirname(input_for_tools);
+    if (!grid_input_dir || !*grid_input_dir) {
+        update_status_label(self, "Impossible de determiner le dossier de l'image.");
+        goto cleanup;
+    }
+
     gchar *prep_msg = g_strdup_printf("Extraction (%s) : préparation.", profile_to_string(profile));
     update_status_label(self, prep_msg);
     g_free(prep_msg);
@@ -1010,7 +1017,7 @@ static void on_extract_clicked(GtkButton *button, gpointer user_data) {
     }
 
     update_status_label(self, "Découpage de la grille.");
-    gchar *grid_args[] = { "./grid_splitter", (gchar *)input_for_tools, grid_root, NULL };
+    gchar *grid_args[] = { "./grid_splitter", grid_input_dir, grid_root, NULL };
     if (!run_command_in_dir(self, "decoupage_grille", grid_args, "Découpage grille", NULL)) {
         goto cleanup;
     }
@@ -1083,6 +1090,7 @@ cleanup:
     g_free(nn_mots);
     g_free(solver_grille);
     g_free(solver_mots);
+    g_free(grid_input_dir);
     if (!success)
         return;
 }
@@ -1315,7 +1323,6 @@ OcrAppWindow *ocr_app_window_new(GtkApplication *application) {
     g_return_val_if_fail(GTK_IS_APPLICATION(application), NULL);
     return g_object_new(OCR_TYPE_APP_WINDOW, "application", application, NULL);
 }
-
 
 
 
