@@ -1066,7 +1066,7 @@ static void on_extract_clicked(GtkButton *button, gpointer user_data) {
     }
 
     if (profile != PROFILE_EASY) {
-        update_status_label(self, "Extraction spéciale terminée. Cliquez sur Résolution pour continuer.");
+        update_status_label(self, "Extraction terminée. Cliquez sur Résolution pour continuer.");
         success = TRUE;
         goto cleanup;
     }
@@ -1221,8 +1221,8 @@ static GtkWidget* build_header_bar(OcrAppWindow *self) {
     g_signal_connect(extract_btn, "clicked", G_CALLBACK(on_extract_clicked), self);
     gtk_header_bar_pack_start(GTK_HEADER_BAR(header_bar), extract_btn);
 
-    GtkWidget *resolve_btn = gtk_button_new_with_label("R+®solution");
-    gtk_widget_set_tooltip_text(resolve_btn, "R+®soudre la grille avec le solver");
+    GtkWidget *resolve_btn = gtk_button_new_with_label("Analyser");
+    gtk_widget_set_tooltip_text(resolve_btn, "Analyser la grille avec le solver");
     gtk_style_context_add_class(gtk_widget_get_style_context(resolve_btn), "accent-btn");
     g_signal_connect(resolve_btn, "clicked", G_CALLBACK(on_resolve_clicked), self);
     gtk_header_bar_pack_end(GTK_HEADER_BAR(header_bar), resolve_btn);

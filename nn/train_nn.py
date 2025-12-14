@@ -1,19 +1,3 @@
-"""
-train_nn.py - Entraîne un MLP (2 couches sigmoïde) sur un dataset de lettres A–Z et
-écrit weights.txt compatible avec nn/ocr_grid.c.
-
-Usage rapide (depuis nn/):
-    python train_nn.py --data dataset/train --epochs 800 --lr 0.1 --hidden 64
-
-Dataset attendu:
-    data_root/
-      A/*.png
-      B/*.png
-      ...
-      Z/*.png
-Toutes les images doivent avoir la même dimension (w x h). Elles sont chargées en
-grayscale, binarisées avec un seuil, puis aplaties en vecteurs 0/1.
-"""
 
 import argparse
 import math
@@ -33,10 +17,6 @@ def sigmoid(x):
 
 
 def load_dataset(data_root: Path, threshold: float):
-    """
-    Charge les PNG dans data_root/<letter>/.
-    Retourne X (N, input_dim) float32, Y (N, 26) float32 one-hot, (w, h).
-    """
     xs = []
     ys = []
     tile_size = None
@@ -65,9 +45,6 @@ def load_dataset(data_root: Path, threshold: float):
 
 
 def train(X, Y, hidden_dim, epochs, lr):
-    """
-    Entraîne un MLP sigmoïde (entrée -> cachée -> sortie) avec BCE moyenne.
-    """
     n_samples, input_dim = X.shape
     output_dim = Y.shape[1]
 

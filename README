@@ -54,3 +54,11 @@ Rendu Decoupage_grille :
     ./mots_extraction data/clean_grid/<images> data/letters/
 
 
+SOUTENANCE FINALE : 
+
+/interface -> make
+cd ..
+./interface/interface
+
+
+à l'aide / HELP

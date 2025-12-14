@@ -4234,7 +4234,7 @@ static int stbi__compute_huffman_codes(stbi__zbuf *a)
 {
    static const stbi_uc length_dezigzag[19] = { 16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15 };
    stbi__zhuffman z_codelength;
-   stbi_uc lencodes[286+32+137];//padding for maximum single op
+   stbi_uc lencodes[286+32+137];
    stbi_uc codelength_sizes[19];
    int i,n;
 
@@ -6289,7 +6289,7 @@ static stbi_uc *stbi__pic_load_core(stbi__context *s,int width,int height,int *c
             default:
                return stbi__errpuc("bad format","packet has bad compression type");
 
-            case 0: {//uncompressed
+            case 0: {
                int x;
 
                for(x=0;x<width;++x, dest+=4)
@@ -6298,7 +6298,7 @@ static stbi_uc *stbi__pic_load_core(stbi__context *s,int width,int height,int *c
                break;
             }
 
-            case 1://Pure RLE
+            case 1:
                {
                   int left=width, i;
 
@@ -6320,7 +6320,7 @@ static stbi_uc *stbi__pic_load_core(stbi__context *s,int width,int height,int *c
                }
                break;
 
-            case 2: {//Mixed RLE
+            case 2: {
                int left=width;
                while (left>0) {
                   int count = stbi__get8(s), i;
