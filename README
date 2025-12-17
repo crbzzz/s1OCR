@@ -1,64 +1,10 @@
-Liste des commandes pour build : 
+🧩 Projet — Build & Exécution
+🚀 Lancement rapide (Interface graphique)
 
-(Personnel pour Windows) CD : cd /mnt/c/Users/
-
-Interface : 
-
-    gcc -o interface main.c ocr_window.c $(pkg-config --cflags --libs gtk+-3.0) -lm
-    ./interface
-
-1. Page d'accueil avec bouton pour lancer le projet.
-2. Possibilité de charger une image dans l'interface.
-3. Rotation d'image avec un angle en entrée, puis enregistrement de l'image rotationnée dans 'out/'.
-4. A chaque nouvelle rotation, 'out/' est clear pour ne garder qu'une image.
-
-
-Solver : 
-
-    gcc -o solver_test main.c solver.c
-    Possibilitée d'utilser le Makefile : make
-    ./solver_test
-
-1. Prends une grille et une liste de mots en entrée
-2. Résout la grille avec les mots donnés et affiche le résultat dans la console.
-
-Réseau Neuronal : 
-
-    Python : python3 nn_python.py 
-
-    Possibilitée d'utilser le Makefile : make
-    gcc nn_c.c -o nn_c -lm
-    ./nn_c
-
-    Entrainement:
-    python3 train_nn.py --data dataset/train --lr 0.1 --hidden 64 --out weights.txt
-
-1. Entraine un réseau neuronal crée pour la fonction XOR
-2. Affiche les résultats de l'entrainement dans la console pour chaque sortie
-
-RENDU binaire : 
-
-    gcc binary.c -o binary -lm
-    ./binary "NOM IMAGE"
-    Possibilitée d'utilser le Makefile : make
-
-    - Rendu renvoyé dans out/ 
-
-1. Prends une image en entrée
-2. Transforme l'image en binaire (noir et blanc)
-3. Sauvegarde l'image binaire dans le dossier out/
-
-Rendu Decoupage_grille :
-    make 
-    ./grid_splitter data/clean_grid  data/letters
-    ./mots_extraction data/clean_grid/<images> data/letters/
-
-
-SOUTENANCE FINALE : 
+Pour compiler et lancer l’interface :
 
 /interface -> make
 cd ..
 ./interface/interface
 
-
-à l'aide / HELP
+Le projet OCR est un travail réalisé au sein d'EPITA, reconnaissant une grille de mot mêlé et résolvant celle-ci depuis une interface.
